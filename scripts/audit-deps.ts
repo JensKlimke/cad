@@ -227,7 +227,7 @@ function checkUnused(): CheckResult {
     };
   }
 
-  let parsed: KnipReport | null = null;
+  let parsed: KnipReport;
   try {
     parsed = JSON.parse(stdoutTrimmed) as KnipReport;
   } catch {
@@ -240,9 +240,9 @@ function checkUnused(): CheckResult {
     };
   }
 
-  const unusedDeps = parsed?.dependencies ?? [];
-  const unusedDev = parsed?.devDependencies ?? [];
-  const unlisted = parsed?.unlisted ?? [];
+  const unusedDeps = parsed.dependencies ?? [];
+  const unusedDev = parsed.devDependencies ?? [];
+  const unlisted = parsed.unlisted ?? [];
   const total = unusedDeps.length + unusedDev.length + unlisted.length;
 
   if (total === 0) {
@@ -313,7 +313,7 @@ function checkOutdated(config: AuditConfig): CheckResult {
     };
   }
 
-  let parsed: OutdatedReport | null = null;
+  let parsed: OutdatedReport;
   try {
     parsed = JSON.parse(stdoutTrimmed) as OutdatedReport;
   } catch {
@@ -413,7 +413,7 @@ function checkLicenses(config: AuditConfig): CheckResult {
     };
   }
 
-  let parsed: LicenseReport | null = null;
+  let parsed: LicenseReport;
   try {
     parsed = JSON.parse(stdoutTrimmed) as LicenseReport;
   } catch {

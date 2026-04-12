@@ -72,6 +72,7 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
+      - uses: dtinth/setup-github-actions-caching-for-turbo@v1
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
 
@@ -89,6 +90,7 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
+      - uses: dtinth/setup-github-actions-caching-for-turbo@v1
       - run: pnpm install --frozen-lockfile
       - run: pnpm test:coverage
       - uses: actions/upload-artifact@v4
@@ -133,6 +135,7 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
+      - uses: dtinth/setup-github-actions-caching-for-turbo@v1
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
       - uses: actions/upload-artifact@v4
@@ -158,9 +161,24 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
+      - uses: dtinth/setup-github-actions-caching-for-turbo@v1
       - run: pnpm install --frozen-lockfile
+      - name: Resolve Playwright version
+        id: playwright-version
+        run: echo "version=$(pnpm --filter @cad/tests-e2e exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
       - name: Install Playwright browser
-        run: pnpm --filter @cad/tests-e2e exec playwright install --with-deps chromium
+        run: |
+          if [ "${{ steps.playwright-cache.outputs.cache-hit }}" = "true" ]; then
+            pnpm --filter @cad/tests-e2e exec playwright install-deps chromium
+          else
+            pnpm --filter @cad/tests-e2e exec playwright install --with-deps chromium
+          fi
       - name: Build web app (preview target)
         run: pnpm turbo run build --filter=@cad/web
       - name: Run golden journey

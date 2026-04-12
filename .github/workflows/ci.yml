@@ -162,7 +162,7 @@ jobs:
       - name: Install Playwright browser
         run: pnpm --filter @cad/tests-e2e exec playwright install --with-deps chromium
       - name: Build web app (preview target)
-        run: pnpm --filter @cad/web build
+        run: pnpm turbo run build --filter=@cad/web
       - name: Run golden journey
         run: pnpm test:e2e
       - uses: actions/upload-artifact@v4

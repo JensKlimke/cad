@@ -38,7 +38,7 @@
     "clean": "rimraf dist"
   },
   "dependencies": {
-    "@eslint/js": "^9.39.4",
+    "@eslint/js": "^10.0.1",
     "@vitest/eslint-plugin": "^1.6.15",
     "eslint-plugin-import-x": "^4.16.2",
     "eslint-plugin-jsx-a11y": "^6.10.2",

@@ -1,0 +1,28 @@
+{
+  "name": "@cad/tests-api",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Fastify harness + Supertest e2e tests. Slice 0 ships a /health endpoint stub so the harness itself is exercised; Slice 1 onward extends it with real project/document routes.",
+  "type": "module",
+  "sideEffects": false,
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "fastify": "^5.8.4",
+    "fastify-type-provider-zod": "^6.1.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@cad/config": "workspace:*",
+    "@types/node": "^22.19.17",
+    "@types/supertest": "^7.2.0",
+    "@vitest/coverage-v8": "^4.1.4",
+    "supertest": "^7.2.2",
+    "typescript": "^6.0.2",
+    "vitest": "^4.1.4"
+  }
+}

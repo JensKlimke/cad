@@ -1,0 +1,25 @@
+node_modules
+dist
+out-tsc
+.turbo
+.vite
+*.tsbuildinfo
+
+coverage
+playwright-report
+test-results
+.stryker-tmp
+
+pnpm-lock.yaml
+*.min.js
+*.min.css
+
+# Large generated data
+**/*.wasm
+**/__fixtures__/**
+
+# Harness / editor / local scratch (user-owned, not project source)
+.claude
+.idea
+.vscode
+TODO.md

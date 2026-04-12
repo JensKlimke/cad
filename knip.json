@@ -1,0 +1,14 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "workspaces": {
+    ".": {
+      "entry": ["scripts/*.ts"],
+      "project": ["scripts/**/*.ts"]
+    },
+    "packages/config": {
+      "entry": ["src/index.js", "src/eslint.js", "src/prettier.js", "src/vitest.js"],
+      "project": ["src/**/*.{js,ts}"]
+    }
+  },
+  "ignoreDependencies": ["turbo"]
+}

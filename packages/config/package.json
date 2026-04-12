@@ -1,0 +1,63 @@
+{
+  "name": "@cad/config",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Shared build, lint, format, and test presets for the CAD monorepo.",
+  "type": "module",
+  "exports": {
+    "./eslint": {
+      "types": "./src/eslint.d.ts",
+      "default": "./src/eslint.js"
+    },
+    "./prettier": {
+      "types": "./src/prettier.d.ts",
+      "default": "./src/prettier.js"
+    },
+    "./vitest": {
+      "types": "./src/vitest.d.ts",
+      "default": "./src/vitest.js"
+    },
+    "./tsconfig/base": "./tsconfig.base.json",
+    "./tsconfig/lib": "./tsconfig.lib.json",
+    "./tsconfig/node": "./tsconfig.node.json",
+    "./tsconfig/browser": "./tsconfig.browser.json",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src",
+    "tsconfig.base.json",
+    "tsconfig.lib.json",
+    "tsconfig.node.json",
+    "tsconfig.browser.json",
+    "README.md"
+  ],
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "echo 'no tests in @cad/config' && exit 0",
+    "clean": "rimraf dist"
+  },
+  "dependencies": {
+    "@eslint/js": "^9.39.4",
+    "@vitest/eslint-plugin": "^1.6.15",
+    "eslint-plugin-import-x": "^4.16.2",
+    "eslint-plugin-jsx-a11y": "^6.10.2",
+    "eslint-plugin-no-only-tests": "^3.3.0",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-unicorn": "^64.0.0",
+    "globals": "^17.5.0",
+    "typescript-eslint": "^8.58.1"
+  },
+  "peerDependencies": {
+    "eslint": "^9.39.4",
+    "prettier": "^3.8.2",
+    "typescript": "^6.0.2",
+    "vitest": "^4.1.4"
+  },
+  "peerDependenciesMeta": {
+    "vitest": {
+      "optional": true
+    }
+  }
+}

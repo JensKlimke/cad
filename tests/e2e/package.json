@@ -1,0 +1,23 @@
+{
+  "name": "@cad/tests-e2e",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Playwright golden journeys for the CAD web editor. Slice 0 ships a single smoke test that asserts the kernel → worker → three.js chain produces the committed tessellation hash.",
+  "type": "module",
+  "sideEffects": false,
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:debug": "playwright test --debug",
+    "test:report": "playwright show-report",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint": "eslint ."
+  },
+  "devDependencies": {
+    "@cad/config": "workspace:*",
+    "@cad/web": "workspace:*",
+    "@playwright/test": "^1.59.1",
+    "@types/node": "^22.19.17",
+    "typescript": "^6.0.2"
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "name": "@cad/web",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Web editor for the CAD monorepo — Vite + React + three.js, kernel in a Web Worker.",
+  "type": "module",
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "clean": "rimraf dist .vite",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@cad/kernel": "workspace:*",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
+    "replicad-opencascadejs": "^0.23.0",
+    "three": "^0.183.2"
+  },
+  "devDependencies": {
+    "@cad/config": "workspace:*",
+    "@testing-library/react": "^16.3.2",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@types/three": "^0.183.1",
+    "@vitejs/plugin-react": "^6.0.1",
+    "@vitest/coverage-v8": "^4.1.4",
+    "happy-dom": "^20.8.9",
+    "rimraf": "^6.1.3",
+    "typescript": "^6.0.2",
+    "vite": "^8.0.8",
+    "vitest": "^4.1.4"
+  }
+}

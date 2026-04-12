@@ -1,0 +1,43 @@
+{
+  "name": "@cad/tests-containers",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Testcontainers helpers — Postgres + MinIO factories reused by every package that needs a real database or object store in its integration tests.",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./postgres": {
+      "types": "./src/postgres.ts",
+      "default": "./src/postgres.ts"
+    },
+    "./minio": {
+      "types": "./src/minio.ts",
+      "default": "./src/minio.ts"
+    }
+  },
+  "files": [
+    "src",
+    "README.md"
+  ],
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@testcontainers/postgresql": "^11.14.0",
+    "testcontainers": "^11.14.0"
+  },
+  "devDependencies": {
+    "@cad/config": "workspace:*",
+    "@types/node": "^22.19.17",
+    "@vitest/coverage-v8": "^4.1.4",
+    "typescript": "^6.0.2",
+    "vitest": "^4.1.4"
+  }
+}

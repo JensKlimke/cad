@@ -1,0 +1,23 @@
+{
+  "$schema": "https://raw.githubusercontent.com/stryker-mutator/stryker-js/master/packages/core/schema/stryker-schema.json",
+  "_comment": "Weekly mutation testing config. Slice 0 seeds the suite with packages/kernel/src/hash.ts — the purest function in the monorepo and the easiest to achieve a high mutation score on. Expand to packages/expr, packages/authoring, packages/references once those land.",
+  "packageManager": "pnpm",
+  "testRunner": "vitest",
+  "testRunnerNodeArgs": [],
+  "vitest": {
+    "configFile": "packages/kernel/vitest.config.ts"
+  },
+  "mutate": ["packages/kernel/src/hash.ts"],
+  "coverageAnalysis": "perTest",
+  "thresholds": {
+    "high": 80,
+    "low": 60,
+    "break": 50
+  },
+  "reporters": ["html", "progress", "clear-text"],
+  "htmlReporter": {
+    "fileName": "reports/mutation/index.html"
+  },
+  "timeoutMS": 60000,
+  "concurrency": 4
+}

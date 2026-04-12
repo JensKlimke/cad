@@ -283,6 +283,22 @@ Ship parts directly from the CAD app to a real 3D printer. BambuLab is the first
 - K9 **Handbook**: dedicated "Printing" section — setup guide (enabling Developer Mode, finding access code + serial), per-model guidance, troubleshooting, safety caveats
 - K10 **Testing**: mock provider that records operations for unit/integration tests; real-printer smoke-test flag (`PRINTER_SMOKE=bambu_x1c`) gated off by default in CI; manual verification checklist for each supported model
 
+### L. Internationalization (i18n / multi-language)
+
+Every user-visible string in the product is translatable from day one. Infrastructure lands in **Slice 0b** — before Slice 1 writes its first login-form string — so the "translate it later" tech debt never accumulates. `apps/cli` is the sole exception (developer tool, English-only).
+
+- L1 `packages/i18n` — shared `react-i18next` + `i18next` runtime; factory for request-scoped server instances and a React context + typed `useT(namespace)` hook for the web.
+- L2 **Launch locales**: English (source) + German (first translation). Adding a third language is a single-file change — one entry in `locales.ts` plus one catalog directory.
+- L3 **JSON namespace catalogs** at `packages/i18n/locales/<lang>/<ns>.json`; industry-standard format consumed by Crowdin / Lokalise / Transifex / Weblate without pre-processing.
+- L4 **`apps/web` every user-visible string** routes through the typed `useT(namespace)` hook. **No locale in the URL** — the active locale lives in a readable `cad_locale` cookie (`SameSite=Lax`, 1 year) mirrored into `localStorage` for cross-tab sync. Detection chain: cookie → localStorage → authenticated user preference (Slice 1+) → `Accept-Language` / `navigator.language` → `en` fallback. Language switcher surfaces in the top bar from Slice 11 (hidden behind a feature flag until then).
+- L5 **`apps/server` error envelopes** grow an optional `i18nKey` field on `@cad/protocol` `ErrorEnvelopeSchema`; the web client re-translates with its active locale. Server reads `cad_locale` cookie first (authoritative, matches the client) with `Accept-Language` as a fallback for non-web callers; attaches a request-scoped `request.t` for any server-side HTML responses (Slice 12 OIDC pages, email templates).
+- L6 **CI gate `i18n:check`** runs `i18next-parser` in check mode on every PR — fails the build if any source file uses a translation key missing from the `en` catalog. Mirrors the handbook CI gate from Slice 4b.
+- L7 **Playwright**: the Slice 0 `box-renders` golden journey (and, from Slice 1, the `lifecycle` journey) runs once per supported locale — confirms the full kernel → worker → three.js → translated viewport chain renders in both `en` and `de`. Budget impact: +1 test slot, still within the ≤10-test / ≤3-min Playwright budget.
+- L8 **Handbook i18n** (Slice 4b) reuses the same `@cad/i18n` runtime and catalog format; MDX content lives in `packages/handbook/content/<lang>/features/*.mdx` with a parallel per-language structure. Missing translations fall back to English.
+- L9 **CLI scope**: `apps/cli` stays English-only. Developer tool, no localized strings, no dependency on `@cad/i18n`. Documented in `docs/slices/slice-0b-i18n-baseline.md`.
+- L10 **MCP tools** (Slice 14) honour a `locale` parameter on every tool response that contains human-readable prose, defaulting to `en`. Handbook-query tools (`handbook_search`, `handbook_get`, `handbook_for_op`) route through `@cad/i18n` to return locale-appropriate content.
+- L11 **Slice DoD gate**: from Slice 0b onward, every slice that ships a user-visible string **must** route it through `@cad/i18n`. Enforced by the `i18n:check` CI gate — landing a new string without a catalog entry blocks the merge.
+
 ### I. Persistence & Platform
 
 - I1 PostgreSQL schema (workspaces, projects, documents, versions, parameters, users)
@@ -296,6 +312,18 @@ Ship parts directly from the CAD app to a real 3D printer. BambuLab is the first
 ## Delivery Slices — Small, Vertical, End-to-End
 
 Each slice ends with something demonstrable. Each has automated tests and a manual verification checklist.
+
+### "See and experience" milestones
+
+Quick reference for when a human can open something and feel progress:
+
+- **Slice 0** — rotating box in the browser (first pixel on screen)
+- **Slice 0b** — same box, overlays translate (`cad_locale=de` → "Kernel wird geladen…")
+- **Slice 1** — `docker compose up`, log in, create a project, see it persist after refresh
+- **Slice 3** — open a document and pan/zoom/orbit/pick with a trackpad
+- **Slice 4** — scrub a parameter in the inspector _or_ Monaco; both stay in sync
+- **Slice 5** — draw a constrained rectangle in sketch mode; Monaco updates itself
+- **Slice 6** — open `examples/spacer.ts`, scrub parameters, export STL, physically 3D-print the part (the full advertised workflow)
 
 ### Slice 0 — Foundations
 
@@ -315,6 +343,19 @@ Monorepo skeleton, CI, kernel-in-worker proof, **and the full testing pyramid sc
   - Handbook lint stub (`lint:handbook` command, no-op at Slice 0)
 - GitHub Actions matrix: typecheck, unit, integration, API e2e, Playwright, coverage gate
   **Ships**: Box in browser + CLI scaffold + green testing pipeline at every layer, proving every layer runs in CI before we build on top of it.
+
+### Slice 0b — Internationalization Baseline
+
+Lands the `@cad/i18n` workspace package, wires `apps/web` through `react-i18next`, migrates the Slice 0 viewport overlays to translated strings, ships English + German source catalogs for three namespaces (`common`, `errors`, `viewport`), and adds the `i18n:check` CI gate. Every subsequent slice writes user-visible strings through the typed `useT(namespace)` hook from day one — the login form in Slice 1 is the first consumer.
+
+- **`packages/i18n`** — shared `i18next` runtime, `declare module 'i18next'` type augmentation, locale registry (`Locale = 'en' | 'de'`), ICU formatters, typed React hook wrapper (`useT`), `<I18nProvider>` component, `createBrowserI18n()` + `createServerI18n()` factories
+- **Launch catalogs** — `en` (source) + `de` (first translation) for `common`, `errors`, and `viewport` namespaces; every German string is a real translation, not a placeholder, so the fallback path is actively exercised
+- **`apps/web` wiring** — `<I18nProvider>` wraps the root, `cad_locale` cookie + `localStorage` detection chain, hidden language switcher component behind a feature flag (surfaces in Slice 11)
+- **Slice 0 migration** — `Viewport.tsx` overlays (`"Booting kernel…"`, `"Kernel error:"`) move into the `viewport` namespace; snapshot assertions accept any supported locale
+- **CI gate** — `pnpm i18n:check` runs `i18next-parser` in check mode; fails the build on any untranslated source string. New CI job wired into `.github/workflows/ci.yml`
+- **Server hook (stub for Slice 1)** — `packages/i18n` exports `createServerI18n()` factory that Slice 1's Fastify bootstrap immediately consumes via an onRequest hook that reads `cad_locale` cookie first and `Accept-Language` second, then attaches `request.t` for route handlers
+- **Playwright** — the Slice 0 `box-renders` golden journey is parameterized on locale; runs once per supported locale, asserts both the deterministic tessellation hash (unchanged) and the translated overlay label
+  **Ships**: launching `apps/web` with `cad_locale=de` renders "Kernel wird geladen…" instead of "Booting kernel…"; the committed tessellation hash is unchanged in both locales; Playwright proves both; `pnpm i18n:check` is green; Slice 1 inherits the contract without any retrofit.
 
 ### Slice 1 — Project & Document Lifecycle (on-prem baseline)
 

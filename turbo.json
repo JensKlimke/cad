@@ -11,15 +11,16 @@
       "outputs": ["*.tsbuildinfo"]
     },
     "lint": {
+      "dependsOn": ["^build"],
       "outputs": []
     },
     "test": {
-      "dependsOn": ["^build"],
+      "dependsOn": ["^build", "build"],
       "outputs": ["coverage/**"],
       "env": ["CI"]
     },
     "test:coverage": {
-      "dependsOn": ["^build"],
+      "dependsOn": ["^build", "build"],
       "outputs": ["coverage/**"]
     },
     "clean": {

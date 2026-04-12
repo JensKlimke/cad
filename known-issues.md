@@ -207,3 +207,15 @@ The lcov report in `coverage/lcov.info` contains the correct per-file data, so t
 **Root cause:** Upstream dependency still ranges on a pre-11 glob. Not under our control.
 
 **Workaround:** None. The deprecated version still works; the warning is purely informational. Revisit during the next major dependency audit pass.
+
+## [P2] `scripts/audit-deps.ts` trips `no-useless-assignment` 3× — Lint
+
+**Observed:** 2026-04-12
+**Where:** `pnpm lint` (direct `eslint .`)
+**Affects:** `scripts/audit-deps.ts` lines 230, 316, 416
+
+**Symptom:** ESLint core rule `no-useless-assignment` flags three `let parsed: T \| null = null; try { parsed = JSON.parse(...) } catch { return ... }` patterns. In the success path the initial `null` is overwritten before any read; in the failure path the function returns early, so the assignment is never observed either way. The rule correctly identifies both control paths as discarding the initial value.
+
+**Root cause:** False-positive-ish — the `= null` exists to satisfy `noImplicitAny` on the `let` declaration, not to provide a value that is ever read. The rule has no hook for that intent. Present on `main` since the initial Slice 0 commit (`f69ccee`). Not introduced by any ongoing work.
+
+**Workaround:** Replace `let parsed: KnipReport \| null = null;` with `let parsed: KnipReport;` inside the `try { } catch { return ... }` — TypeScript accepts definite assignment because the successful path is the only one that can fall through. Alternatively, disable the rule inline with `// eslint-disable-next-line no-useless-assignment`. Orthogonal to any task that doesn't touch the audit script.

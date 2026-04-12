@@ -6,16 +6,16 @@
   "type": "module",
   "exports": {
     "./eslint": {
-      "types": "./src/eslint.d.ts",
-      "default": "./src/eslint.js"
+      "types": "./dist/eslint.d.ts",
+      "default": "./dist/eslint.js"
     },
     "./prettier": {
-      "types": "./src/prettier.d.ts",
-      "default": "./src/prettier.js"
+      "types": "./dist/prettier.d.ts",
+      "default": "./dist/prettier.js"
     },
     "./vitest": {
-      "types": "./src/vitest.d.ts",
-      "default": "./src/vitest.js"
+      "types": "./dist/vitest.d.ts",
+      "default": "./dist/vitest.js"
     },
     "./tsconfig/base": "./tsconfig.base.json",
     "./tsconfig/lib": "./tsconfig.lib.json",
@@ -24,7 +24,7 @@
     "./package.json": "./package.json"
   },
   "files": [
-    "src",
+    "dist",
     "tsconfig.base.json",
     "tsconfig.lib.json",
     "tsconfig.node.json",
@@ -32,6 +32,7 @@
     "README.md"
   ],
   "scripts": {
+    "build": "tsc -p tsconfig.build.json",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "echo 'no tests in @cad/config' && exit 0",

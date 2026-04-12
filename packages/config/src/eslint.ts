@@ -19,13 +19,13 @@ import unicorn from 'eslint-plugin-unicorn';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
+import type { Linter } from 'eslint';
+
 /**
  * Ignore patterns applied globally. A single `ignores`-only block must be the
  * first item in the flat config array per ESLint 10 semantics.
- *
- * @type {import('eslint').Linter.Config}
  */
-export const ignores = {
+export const ignores: Linter.Config = {
   ignores: [
     '**/dist/**',
     '**/node_modules/**',
@@ -43,25 +43,26 @@ export const ignores = {
 /**
  * Language options grouped by runtime environment. Consumers pick one.
  */
-export const languageOptions = {
+export const languageOptions: {
+  readonly node: Linter.LanguageOptions;
+  readonly browser: Linter.LanguageOptions;
+} = {
   node: {
     globals: { ...globals.node },
     ecmaVersion: 2023,
-    sourceType: /** @type {const} */ ('module'),
+    sourceType: 'module',
   },
   browser: {
     globals: { ...globals.browser },
     ecmaVersion: 2023,
-    sourceType: /** @type {const} */ ('module'),
+    sourceType: 'module',
   },
 };
 
 /**
  * Base JavaScript + import ordering rules applied to all source files.
- *
- * @type {import('eslint').Linter.Config[]}
  */
-export const baseConfig = [
+export const baseConfig: Linter.Config[] = [
   js.configs.recommended,
   {
     plugins: {
@@ -91,11 +92,9 @@ export const baseConfig = [
  * TypeScript rules. Deliberately uses the non-type-checked recommended set —
  * type-checked rules are opt-in per package because they require a
  * `parserOptions.projectService` or a project reference.
- *
- * @type {import('eslint').Linter.Config[]}
  */
-export const typescriptConfig = [
-  ...tseslint.configs.recommended,
+export const typescriptConfig: Linter.Config[] = [
+  ...(tseslint.configs.recommended as Linter.Config[]),
   {
     files: ['**/*.ts', '**/*.tsx', '**/*.mts', '**/*.cts'],
     rules: {
@@ -114,10 +113,8 @@ export const typescriptConfig = [
  * Unicorn recommended rules with a handful of pragmatic overrides. Uses
  * `configs.recommended` (the current flat-config entry point) rather than
  * the deprecated `configs['flat/recommended']` alias.
- *
- * @type {import('eslint').Linter.Config}
  */
-export const unicornConfig = {
+export const unicornConfig: Linter.Config = {
   plugins: { unicorn },
   rules: {
     ...unicorn.configs.recommended.rules,
@@ -141,15 +138,13 @@ export const unicornConfig = {
  * where React applies.
  *
  * `eslint-plugin-react`'s flat configs are typed as `T | undefined` even
- * though they exist at runtime, so the first two entries need JSDoc casts.
+ * though they exist at runtime, so the first two entries need casts.
  * `eslint-plugin-react-hooks` and `eslint-plugin-jsx-a11y` plug in cleanly
  * without casts under ESLint 9.
- *
- * @type {import('eslint').Linter.Config[]}
  */
-export const reactConfig = [
-  /** @type {import('eslint').Linter.Config} */ (reactPlugin.configs.flat.recommended),
-  /** @type {import('eslint').Linter.Config} */ (reactPlugin.configs.flat['jsx-runtime']),
+export const reactConfig: Linter.Config[] = [
+  reactPlugin.configs.flat.recommended as Linter.Config,
+  reactPlugin.configs.flat['jsx-runtime'] as Linter.Config,
   reactHooks.configs.flat.recommended,
   {
     plugins: { 'jsx-a11y': jsxA11y },
@@ -160,10 +155,8 @@ export const reactConfig = [
 
 /**
  * Vitest rules, scoped to test files.
- *
- * @type {import('eslint').Linter.Config}
  */
-export const vitestConfig = {
+export const vitestConfig: Linter.Config = {
   files: [
     '**/*.test.{ts,tsx,js,jsx}',
     '**/__tests__/**/*.{ts,tsx,js,jsx}',

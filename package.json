@@ -10,7 +10,7 @@
     "pnpm": ">=9.0.0"
   },
   "scripts": {
-    "postinstall": "node scripts/patch-occt-esm.mjs",
+    "postinstall": "node scripts/patch-occt-esm.mjs && pnpm --filter @cad/config build",
     "build": "turbo run build",
     "typecheck": "turbo run typecheck",
     "lint": "pnpm lint:code && pnpm lint:handbook",

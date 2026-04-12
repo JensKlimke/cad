@@ -6,28 +6,29 @@
  * and can be overridden per package.
  */
 
-/**
- * @typedef {'lib' | 'node' | 'browser'} PackageType
- */
+import type { ViteUserConfig } from 'vitest/config';
 
-/**
- * @typedef {Object} CoverageThresholds
- * @property {number} [lines]
- * @property {number} [branches]
- * @property {number} [functions]
- * @property {number} [statements]
- */
+export type PackageType = 'lib' | 'node' | 'browser';
 
-/**
- * @typedef {Object} VitestPresetOptions
- * @property {PackageType} [packageType]      Defaults to `'lib'`.
- * @property {CoverageThresholds} [coverage]   Override per-package thresholds.
- * @property {string[]} [include]              Override the test file glob.
- * @property {string[]} [exclude]              Override the exclusion glob.
- */
+export interface CoverageThresholds {
+  readonly lines?: number;
+  readonly branches?: number;
+  readonly functions?: number;
+  readonly statements?: number;
+}
 
-/** @type {Record<PackageType, Required<CoverageThresholds>>} */
-const defaultCoverage = {
+export interface VitestPresetOptions {
+  /** Defaults to `'lib'`. */
+  readonly packageType?: PackageType;
+  /** Override per-package thresholds. */
+  readonly coverage?: CoverageThresholds;
+  /** Override the test file glob. */
+  readonly include?: readonly string[];
+  /** Override the exclusion glob. */
+  readonly exclude?: readonly string[];
+}
+
+const defaultCoverage: Record<PackageType, Required<CoverageThresholds>> = {
   lib: { lines: 90, branches: 85, functions: 90, statements: 90 },
   node: { lines: 80, branches: 75, functions: 80, statements: 80 },
   browser: { lines: 70, branches: 60, functions: 70, statements: 70 },
@@ -36,16 +37,14 @@ const defaultCoverage = {
 /**
  * Produce a Vitest config tailored to the package type.
  *
- * Usage:
+ * @example
  * ```ts
  * import { defineConfig } from 'vitest/config';
  * import { defineVitestPreset } from '@cad/config/vitest';
  * export default defineConfig(defineVitestPreset({ packageType: 'lib' }));
  * ```
- *
- * @param {VitestPresetOptions} [options]
  */
-export function defineVitestPreset(options = {}) {
+export function defineVitestPreset(options: VitestPresetOptions = {}): ViteUserConfig {
   const packageType = options.packageType ?? 'lib';
   const coverage = { ...defaultCoverage[packageType], ...options.coverage };
   const environment = packageType === 'browser' ? 'happy-dom' : 'node';
@@ -56,11 +55,12 @@ export function defineVitestPreset(options = {}) {
       globals: false,
       clearMocks: true,
       restoreMocks: true,
-      include: options.include ?? [
-        'src/**/*.test.{ts,tsx,js,jsx}',
-        'test/**/*.test.{ts,tsx,js,jsx}',
-      ],
-      exclude: options.exclude ?? ['**/node_modules/**', '**/dist/**', '**/.turbo/**'],
+      include: options.include
+        ? [...options.include]
+        : ['src/**/*.test.{ts,tsx,js,jsx}', 'test/**/*.test.{ts,tsx,js,jsx}'],
+      exclude: options.exclude
+        ? [...options.exclude]
+        : ['**/node_modules/**', '**/dist/**', '**/.turbo/**'],
       coverage: {
         provider: 'v8',
         reporter: ['text', 'html', 'lcov'],

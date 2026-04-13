@@ -59,7 +59,10 @@ export async function createBrowserI18n(options: BrowserI18nOptions = {}): Promi
       detection: {
         order: ['cad-cookie', 'localStorage', 'navigator'],
         caches: ['cookie', 'localStorage'],
+        lookupCookie: 'cad_locale',
         lookupLocalStorage: 'cad_locale',
+        cookieMinutes: 60 * 24 * 365, // 1 year
+        cookieOptions: { path: '/', sameSite: 'lax' },
       },
       returnNull: false,
     });

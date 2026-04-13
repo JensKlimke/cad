@@ -4,5 +4,6 @@
   "actions.ok": "OK",
   "actions.retry": "Erneut versuchen",
   "actions.save": "Speichern",
+  "language.label": "Sprache",
   "state.loading": "Wird geladen…"
 }

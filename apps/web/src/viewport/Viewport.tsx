@@ -6,6 +6,7 @@
  * is how Slice 0 proves end-to-end determinism from kernel to pixels.
  */
 
+import { useT } from '@cad/i18n';
 import { useEffect, useRef } from 'react';
 
 import { createScene, type SceneHandles } from '../lib/three-scene.js';
@@ -50,6 +51,7 @@ export interface ViewportProps {
 }
 
 export function Viewport({ box }: ViewportProps): React.JSX.Element {
+  const { t } = useT('viewport');
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const handlesRef = useRef<SceneHandles | null>(null);
   const rafRef = useRef<number | null>(null);
@@ -87,11 +89,14 @@ export function Viewport({ box }: ViewportProps): React.JSX.Element {
   return (
     <div data-tessellation-hash={result?.metadata.hash ?? ''} style={VIEWPORT_STYLE}>
       <canvas ref={canvasRef} style={CANVAS_STYLE} />
-      {pending && !error && <div style={OVERLAY_STYLE}>Booting kernel…</div>}
-      {error && <div style={ERROR_STYLE}>Kernel error: {error}</div>}
+      {pending && !error && <div style={OVERLAY_STYLE}>{t('kernel.booting')}</div>}
+      {error && <div style={ERROR_STYLE}>{t('kernel.error', { message: error })}</div>}
       {result && (
         <div style={OVERLAY_STYLE}>
-          {result.metadata.triangleCount} tri · hash {result.metadata.hash.slice(0, 12)}…
+          {t('mesh.summary', {
+            triangles: result.metadata.triangleCount,
+            hashPrefix: result.metadata.hash.slice(0, 12),
+          })}
         </div>
       )}
     </div>

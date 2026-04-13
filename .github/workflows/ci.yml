@@ -58,6 +58,27 @@ jobs:
       - run: pnpm lint:handbook
       - run: pnpm format:check
 
+  i18n-check:
+    name: i18n catalog gate
+    needs: setup
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # Fails the build if any source file calls `t('key')` / `<Trans>`
+      # for a translation key that is not in the `en` catalog.
+      # Introduced by Slice 0b; the gate scales to every future slice
+      # via `packages/i18n/locales/<lang>/<ns>.json`.
+      - run: pnpm i18n:check
+
   typecheck:
     name: Typecheck
     needs: setup

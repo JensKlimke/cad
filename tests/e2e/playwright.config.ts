@@ -29,7 +29,11 @@ export default defineConfig({
   expect: { timeout: 10_000 },
 
   reporter: process.env['CI']
-    ? [['html', { open: 'never', outputFolder: 'playwright-report' }], ['github']]
+    ? [
+        ['html', { open: 'never', outputFolder: 'playwright-report' }],
+        ['junit', { outputFile: 'reports/junit.xml' }],
+        ['github'],
+      ]
     : [['html', { open: 'never', outputFolder: 'playwright-report' }], ['list']],
 
   use: {

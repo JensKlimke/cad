@@ -16,12 +16,13 @@
     },
     "test": {
       "dependsOn": ["^build", "build"],
-      "outputs": ["coverage/**"],
+      "outputs": ["coverage/**", "reports/**"],
       "env": ["CI"]
     },
     "test:coverage": {
       "dependsOn": ["^build", "build"],
-      "outputs": ["coverage/**"]
+      "outputs": ["coverage/**", "reports/**"],
+      "env": ["CI"]
     },
     "clean": {
       "cache": false

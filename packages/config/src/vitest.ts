@@ -48,6 +48,7 @@ export function defineVitestPreset(options: VitestPresetOptions = {}): ViteUserC
   const packageType = options.packageType ?? 'lib';
   const coverage = { ...defaultCoverage[packageType], ...options.coverage };
   const environment = packageType === 'browser' ? 'happy-dom' : 'node';
+  const isCI = process.env['CI'] === 'true';
 
   return {
     test: {
@@ -61,9 +62,13 @@ export function defineVitestPreset(options: VitestPresetOptions = {}): ViteUserC
       exclude: options.exclude
         ? [...options.exclude]
         : ['**/node_modules/**', '**/dist/**', '**/.turbo/**'],
+      // In CI, also emit a JUnit XML so action-junit-report can surface
+      // per-test pass/fail as a GitHub check with inline annotations.
+      reporters: isCI ? ['default', ['junit', { outputFile: 'reports/junit.xml' }]] : ['default'],
       coverage: {
         provider: 'v8',
-        reporter: ['text', 'html', 'lcov'],
+        // `json` + `json-summary` are required by davelosert/vitest-coverage-report-action.
+        reporter: ['text', 'html', 'lcov', 'json', 'json-summary'],
         thresholds: {
           lines: coverage.lines,
           branches: coverage.branches,

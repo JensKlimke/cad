@@ -100,7 +100,16 @@ If knip is wrong (the dep is referenced via dynamic import, plugin discovery, or
 1. Read the upstream changelog for the major bump. **Do not** auto-upgrade.
 2. Decide: upgrade now (focused PR), wait until a downstream dep also catches up, or replace the package.
 3. If upgrading: `pnpm update --latest <pkg>`, run the full `/quality` flow, ship in its own PR (never bundled with feature work).
-4. If waiting: open a tracking issue, add the package to a `pnpm.overrides` block pinning the safe major, and **document the deferral** in `known-issues.md` as a P2 — every wait should have a deadline.
+4. If waiting because **upstream peer ranges or runtime constraints make the upgrade impossible**: add the package to `outdated.exceptions` in `scripts/audit-deps.config.json`. Every entry **must** include `name`, `latestMajor` (the version we cannot reach), `reason` (the upstream blocker — peer-dep range, engine constraint, etc.), and `trackingUrl` (issue / discussion link or in-repo anchor). The exception only suppresses the block while `latestMajor` matches; the moment upstream ships a new major, the audit re-fails and forces a fresh decision. Exempted majors are surfaced as `info` so they remain visible in every audit run — they are not silenced.
+
+#### Outdated exceptions (when to use, when not to)
+
+| When                                                                                                                                                  | Action                                                                                                                                                                                           |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| You can upgrade now (no peer-dep blocker, no engine blocker, no API break)                                                                            | Upgrade. Do not add an exception.                                                                                                                                                                |
+| You could upgrade but want to defer for review                                                                                                        | Open a tracking issue, log a P2 in `known-issues.md`, **do not** add an exception. The audit must keep failing until the work is done.                                                           |
+| Upstream peer-dep range explicitly excludes the new major (e.g., a plugin still pinned to the old major) **and** runtime is broken on the new version | Add an exception. Reason must name the blocker package + version. The exception expires automatically when upstream releases a compatible version (a different `latestMajor` re-trips the gate). |
+| You disagree with the new major's API direction                                                                                                       | Not an exception. Either pin via `pnpm.overrides` and replace later, or replace the package now.                                                                                                 |
 
 ### License fail (blocklist)
 

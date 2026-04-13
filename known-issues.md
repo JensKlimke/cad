@@ -32,22 +32,17 @@ Remove the issue from this doc after fixing.
 
 ---
 
-## [P3] Four direct dev-dependencies behind by a major version — Audit (outdated)
+## [P2] `eslint` 9 → 10 upgrade blocked by React plugin ecosystem — Audit (outdated)
 
-**Observed:** 2026-04-12
+**Observed:** 2026-04-13
 **Where:** `pnpm audit:outdated` (run via `pnpm audit:deps`)
-**Affects:** root workspace
+**Affects:** root workspace, `@cad/config`
 
-**Symptom:** The dependency audit blocks on four major-version drifts:
+**Symptom:** `eslint` 10.2.0 and `@eslint/js` 10.0.1 are upstream-current. We are pinned at 9.39.4. Trying to upgrade fails at runtime: `eslint-plugin-react@7.37.5` calls APIs that were renamed in eslint 10 and throws `TypeError: contextOrFilename.getFilename is not a function` for every TSX file. `eslint-plugin-react-hooks@7.0.1`, `eslint-plugin-jsx-a11y@6.10.2`, and `eslint-plugin-react@7.37.5` all peer-dep `eslint ^9` only — none of them have shipped an eslint-10-compatible version yet.
 
-- `@eslint/js` 9.39.4 → 10.0.1
-- `eslint` 9.39.4 → 10.2.0
-- `@types/node` 22.19.17 → 25.6.0
-- `knip` 5.88.1 → 6.4.0
+**Root cause:** Upstream React plugin maintainers have not released eslint-10-compatible versions. The peer-dep range is enforced both at install time (warnings) and at runtime (the `getFilename` API drift).
 
-**Root cause:** ESLint and `@eslint/js` 10.x are still gated on the `eslint-plugin-react`, `eslint-plugin-react-hooks`, and `eslint-plugin-jsx-a11y` peer-dependency ranges (the previously logged peer-dep warning is the same family of issues). `@types/node` 25 requires Node 25, while we target Node 22 LTS per `package.json` `engines.node`. `knip` 6 is a fresh major and the changelog needs review before adoption.
-
-**Workaround:** None — these are intentional pins. They are surfaced by the audit so we are reminded to revisit after upstream catches up. Upgrade in dedicated PRs once the gating peer ranges / runtime targets allow it.
+**Workaround:** Both packages are listed in `outdated.exceptions` in `scripts/audit-deps.config.json` so the audit surfaces them as `info` instead of blocking. The exception only suppresses the block while the latest major remains 10 — the moment upstream ships a new major, the audit re-fails and forces a fresh decision. Tracked here as P2 with a deadline: re-evaluate when any one of `eslint-plugin-react`, `eslint-plugin-react-hooks`, or `eslint-plugin-jsx-a11y` releases a major that supports eslint 10.
 
 ## [P2] `replicad-opencascadejs@0.23.0` ships a hybrid CJS/ESM source file — Kernel toolchain
 

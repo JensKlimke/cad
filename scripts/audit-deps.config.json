@@ -5,7 +5,21 @@
     "scope": "prod"
   },
   "outdated": {
-    "blockOn": "major"
+    "blockOn": "major",
+    "exceptions": [
+      {
+        "name": "eslint",
+        "latestMajor": 10,
+        "reason": "eslint-plugin-react@7.37.5, eslint-plugin-react-hooks@7.0.1, eslint-plugin-jsx-a11y@6.10.2 only peer-dep eslint ^9; runtime confirmed broken on eslint 10",
+        "trackingUrl": "https://github.com/jsx-eslint/eslint-plugin-react/issues"
+      },
+      {
+        "name": "@eslint/js",
+        "latestMajor": 10,
+        "reason": "tied to eslint major; cannot upgrade without bumping eslint, which is blocked by the React plugin ecosystem",
+        "trackingUrl": "https://github.com/jsx-eslint/eslint-plugin-react/issues"
+      }
+    ]
   },
   "licenses": {
     "allow": [

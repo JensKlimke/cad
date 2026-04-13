@@ -24,6 +24,20 @@ type AuditLevel = 'low' | 'moderate' | 'high' | 'critical';
 type AuditScope = 'all' | 'prod';
 type OutdatedBlock = 'none' | 'major' | 'minor' | 'any';
 
+interface OutdatedException {
+  /** Package name as reported by `pnpm outdated`. */
+  readonly name: string;
+  /** Major version we are pinned to (the upgrade target we cannot reach). */
+  readonly latestMajor: number;
+  /** Why the upgrade is blocked — typically an upstream peer-dep range. */
+  readonly reason: string;
+  /**
+   * Issue / discussion link tracking when this exception expires.
+   * Required so exceptions cannot rot indefinitely without a deadline.
+   */
+  readonly trackingUrl: string;
+}
+
 interface AuditConfig {
   readonly vulnerabilities: {
     readonly auditLevel: AuditLevel;
@@ -31,6 +45,13 @@ interface AuditConfig {
   };
   readonly outdated: {
     readonly blockOn: OutdatedBlock;
+    /**
+     * Direct deps that are surfaced as info instead of fail when the
+     * latest upstream major matches `latestMajor`. Every entry must
+     * carry a `reason` and a `trackingUrl`. See
+     * `docs/dependency-audit.md` § Outdated exceptions.
+     */
+    readonly exceptions?: readonly OutdatedException[];
   };
   readonly licenses: {
     readonly allow: readonly string[];
@@ -327,7 +348,18 @@ function checkOutdated(config: AuditConfig): CheckResult {
   }
 
   const entries = Object.entries(parsed);
+  const exceptions = new Map<string, OutdatedException>();
+  for (const exc of config.outdated.exceptions ?? []) {
+    exceptions.set(exc.name, exc);
+  }
+
   const majorDrift: Array<{ name: string; current: string; latest: string }> = [];
+  const exemptedDrift: Array<{
+    name: string;
+    current: string;
+    latest: string;
+    reason: string;
+  }> = [];
   const minorDrift: Array<{ name: string; current: string; latest: string }> = [];
 
   for (const [name, info] of entries) {
@@ -336,7 +368,17 @@ function checkOutdated(config: AuditConfig): CheckResult {
     if (currentMajor === null || latestMajor === null) continue;
     const driftedMajor = latestMajor > currentMajor;
     if (driftedMajor) {
-      majorDrift.push({ name, current: info.current, latest: info.latest });
+      const exception = exceptions.get(name);
+      if (exception !== undefined && exception.latestMajor === latestMajor) {
+        exemptedDrift.push({
+          name,
+          current: info.current,
+          latest: info.latest,
+          reason: exception.reason,
+        });
+      } else {
+        majorDrift.push({ name, current: info.current, latest: info.latest });
+      }
     } else {
       minorDrift.push({ name, current: info.current, latest: info.latest });
     }
@@ -349,23 +391,45 @@ function checkOutdated(config: AuditConfig): CheckResult {
 
   if (majorDrift.length > 0 && blocksOnMajor) {
     const list = majorDrift.map((d) => `${d.name} ${d.current} → ${d.latest}`).join('; ');
+    const details = [list, `+${minorDrift.length} minor/patch updates available (informational)`];
+    if (exemptedDrift.length > 0) {
+      details.push(
+        `+${exemptedDrift.length} exempted (documented in audit-deps.config.json): ${exemptedDrift
+          .map((d) => `${d.name} ${d.current} → ${d.latest} (${d.reason})`)
+          .join('; ')}`,
+      );
+    }
     return {
       name: 'outdated-deps',
       status: 'fail',
       summary: `${majorDrift.length} dependencies behind by a major version`,
-      details: [list, `+${minorDrift.length} minor/patch updates available (informational)`],
+      details,
       blocking: true,
     };
+  }
+
+  const infoLines: string[] = [];
+  if (minorDrift.length > 0) {
+    infoLines.push(minorDrift.map((d) => `${d.name} ${d.current} → ${d.latest}`).join('; '));
+  }
+  if (exemptedDrift.length > 0) {
+    infoLines.push(
+      `${exemptedDrift.length} major drift exempted: ${exemptedDrift
+        .map((d) => `${d.name} ${d.current} → ${d.latest} (${d.reason})`)
+        .join('; ')}`,
+    );
   }
 
   return {
     name: 'outdated-deps',
     status: 'info',
-    summary: `${minorDrift.length} minor/patch updates available`,
-    details:
-      minorDrift.length > 0
-        ? [minorDrift.map((d) => `${d.name} ${d.current} → ${d.latest}`).join('; ')]
-        : [],
+    summary:
+      exemptedDrift.length > 0 && minorDrift.length === 0
+        ? `${exemptedDrift.length} major drift exempted, no other drift`
+        : `${minorDrift.length} minor/patch updates available${
+            exemptedDrift.length > 0 ? ` (+${exemptedDrift.length} exempted majors)` : ''
+          }`,
+    details: infoLines,
     blocking: false,
   };
 }

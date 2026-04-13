@@ -1,0 +1,5 @@
+{
+  "kernel.booting": "Booting kernel…",
+  "kernel.error": "Kernel error: {message}",
+  "mesh.summary": "{triangles} tri · hash {hashPrefix}…"
+}

@@ -1,0 +1,8 @@
+{
+  "actions.cancel": "Abbrechen",
+  "actions.delete": "Löschen",
+  "actions.ok": "OK",
+  "actions.retry": "Erneut versuchen",
+  "actions.save": "Speichern",
+  "state.loading": "Wird geladen…"
+}

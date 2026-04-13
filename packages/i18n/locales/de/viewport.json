@@ -1,0 +1,5 @@
+{
+  "kernel.booting": "Kernel wird geladen…",
+  "kernel.error": "Kernel-Fehler: {message}",
+  "mesh.summary": "{triangles} Dreiecke · Hash {hashPrefix}…"
+}

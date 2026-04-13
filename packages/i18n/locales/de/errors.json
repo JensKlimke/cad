@@ -1,0 +1,10 @@
+{
+  "auth.invalid_credentials": "E-Mail oder Passwort ist falsch.",
+  "auth.session_expired": "Ihre Sitzung ist abgelaufen. Bitte melden Sie sich erneut an.",
+  "auth.session_revoked": "Ihre Sitzung wurde abgemeldet. Bitte melden Sie sich erneut an.",
+  "documents.not_found": "Dokument nicht gefunden.",
+  "generic": "Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut.",
+  "network.timeout": "Die Anfrage hat das Zeitlimit überschritten. Bitte erneut versuchen.",
+  "network.unreachable": "Server nicht erreichbar. Bitte überprüfen Sie Ihre Verbindung.",
+  "projects.not_found": "Projekt nicht gefunden."
+}

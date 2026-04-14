@@ -42,9 +42,18 @@ export default [
   },
   ...webReactOverrides,
 
-  // CLI and top-level scripts may log to stdout.
+  // CLI and top-level scripts may log to stdout and call process.exit.
+  // The `packages/*/scripts/**` glob covers package-local CLI scripts
+  // such as `packages/db/scripts/migrate.ts`.
   {
-    files: ['apps/cli/**/*.{ts,tsx,js,jsx,mjs}', 'scripts/**/*.{ts,tsx,js,jsx,mjs}'],
-    rules: { 'no-console': 'off' },
+    files: [
+      'apps/cli/**/*.{ts,tsx,js,jsx,mjs}',
+      'scripts/**/*.{ts,tsx,js,jsx,mjs}',
+      'packages/*/scripts/**/*.{ts,tsx,js,jsx,mjs}',
+    ],
+    rules: {
+      'no-console': 'off',
+      'unicorn/no-process-exit': 'off',
+    },
   },
 ];

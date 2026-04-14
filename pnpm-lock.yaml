@@ -200,6 +200,9 @@ importers:
       '@cad/config':
         specifier: workspace:*
         version: link:../config
+      '@cad/tests-containers':
+        specifier: workspace:*
+        version: link:../../tests/containers
       '@types/node':
         specifier: ^25.6.0
         version: 25.6.0
@@ -215,6 +218,9 @@ importers:
       rimraf:
         specifier: ^6.1.3
         version: 6.1.3
+      tsx:
+        specifier: ^4.21.0
+        version: 4.21.0
       typescript:
         specifier: ^6.0.2
         version: 6.0.2

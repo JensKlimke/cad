@@ -31,13 +31,17 @@ import {
 
 import { ApiError, toErrorEnvelope } from './errors.js';
 import authPlugin from './plugins/auth.js';
+import configPlugin from './plugins/config.js';
 import dbPlugin from './plugins/db.js';
 import i18nPlugin from './plugins/i18n.js';
 import observabilityPlugin from './plugins/observability.js';
 import openapiPlugin from './plugins/openapi.js';
 import securityPlugin from './plugins/security.js';
 import storagePlugin from './plugins/storage.js';
+import { authRoutes } from './routes/auth/index.js';
+import { documentsRoutes } from './routes/documents/index.js';
 import { healthRoute } from './routes/health.js';
+import { projectsRoutes } from './routes/projects/index.js';
 
 import type { Env } from './config/env.js';
 
@@ -78,6 +82,7 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
     reply.code(statusCode).send(envelope);
   });
 
+  await app.register(configPlugin, { env: options.env });
   await app.register(observabilityPlugin);
   await app.register(securityPlugin, { env: options.env });
   await app.register(cookie, { secret: options.env.COOKIE_SECRET });
@@ -88,6 +93,9 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   await app.register(openapiPlugin);
 
   await app.register(healthRoute);
+  await app.register(authRoutes);
+  await app.register(projectsRoutes);
+  await app.register(documentsRoutes);
 
   await app.ready();
   return app;

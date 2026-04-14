@@ -29,8 +29,8 @@ the next 15 slices of UI work is locked in here:
 4. **Type safety**: compile-time `t('namespace:key')` checking via
    `declare module 'i18next'` resource augmentation — no codegen
    package, no runtime penalty.
-5. **CI gate**: `i18next-parser` runs in check mode on every PR;
-   missing source keys block the merge.
+5. **CI gate**: `i18next-cli` runs in CI mode (`extract --dry-run
+--ci`) on every PR; missing source keys block the merge.
 
 The two hard-coded strings in Slice 0's `Viewport.tsx`
 (`"Booting kernel…"` and `"Kernel error:"`) are the first migration
@@ -50,7 +50,7 @@ pnpm install
 pnpm -r typecheck
 pnpm -r test
 pnpm lint:code
-pnpm i18n:check          # NEW — i18next-parser in check mode
+pnpm i18n:check          # NEW — i18next-cli in CI mode
 pnpm format:check
 pnpm -r build
 pnpm --filter @cad/web preview
@@ -82,9 +82,10 @@ Concretely, Slice 0b is done when **all** of the following hold:
 7. `@cad/protocol` **does not yet exist** (it lands in Slice 1 / W2),
    so the `ErrorEnvelopeSchema` extension ships as a type-level
    sketch in Slice 0b's doc; Slice 1 implements it.
-8. `i18next-parser.config.js` at repo root scans `apps/web/src/**/*.{ts,tsx}`
-   (and, once `apps/server` exists, `apps/server/src/**/*.ts`); the
-   `pnpm i18n:check` root script runs it in check mode.
+8. `i18next.config.ts` at repo root scans `apps/web/src/**/*.{ts,tsx}`
+   (and, once `apps/server` exists, `apps/server/src/**/*.ts`) via
+   `i18next-cli`; the `pnpm i18n:check` root script runs
+   `i18next-cli extract --dry-run --ci`.
 9. New `i18n-check` job in `.github/workflows/ci.yml` runs the gate
    on every PR.
 10. The Slice 0 `box-renders` Playwright spec is **replaced** by a
@@ -144,7 +145,7 @@ cad/
     workflows/
       ci.yml                                 # EXTENDED: i18n-check job
 
-  i18next-parser.config.js                   # NEW — root extractor config
+  i18next.config.ts                          # NEW — i18next-cli extractor config
 
   packages/
     i18n/                                    # NEW — shared i18n runtime
@@ -549,46 +550,53 @@ works in happy-dom.
 
 **Files**
 
-- `i18next-parser.config.js` at repo root (CommonJS — older
-  `i18next-parser` still requires CJS config):
-  ```js
-  /** @type {import('i18next-parser').UserConfig} */
-  module.exports = {
+- `i18next.config.ts` at repo root, ESM (the rest of the monorepo
+  is `"type": "module"` so a `.ts` config under `tsx` works
+  natively):
+
+  ```ts
+  import { defineConfig } from 'i18next-cli';
+
+  export default defineConfig({
     locales: ['en', 'de'],
-    output: 'packages/i18n/locales/$LOCALE/$NAMESPACE.json',
-    input: [
-      'apps/web/src/**/*.{ts,tsx}',
-      'apps/server/src/**/*.ts', // Slice 1 onward
-      'packages/i18n/src/**/*.{ts,tsx}',
-    ],
-    defaultNamespace: 'common',
-    namespaceSeparator: ':',
-    keySeparator: '.',
-    sort: true,
-    createOldCatalogs: false,
-    failOnUpdate: false,
-    failOnWarnings: true,
-    verbose: false,
-    lexers: {
-      ts: ['JavascriptLexer'],
-      tsx: ['JsxLexer'],
-      default: ['JavascriptLexer'],
+    extract: {
+      input: ['apps/web/src/**/*.{ts,tsx}'],
+      output: 'packages/i18n/locales/{{language}}/{{namespace}}.json',
+      defaultNS: 'common',
+      keySeparator: false,
+      nsSeparator: ':',
+      functions: ['t', '*.t'],
+      transComponents: ['Trans'],
+      // useT('ns') is a thin wrapper over react-i18next's
+      // useTranslation. Registering it here teaches the analyzer
+      // that `const { t } = useT('viewport')` binds the namespace
+      // to viewport for every subsequent t() call in scope.
+      useTranslationNames: ['useTranslation', 'useT'],
+      // Reserved keys for namespaces that exist in the catalog
+      // before any source file calls them — Slice 1's UI and
+      // error envelope contract. Stops the gate from wiping them
+      // on every PR. Patterns become redundant as Slice 1+ adds
+      // the actual t() calls.
+      preservePatterns: ['common:actions.*', 'common:state.*', 'errors:*'],
     },
-  };
+  });
   ```
+
 - Root `package.json` scripts:
-  - `"i18n:extract": "i18next --config i18next-parser.config.js"` —
-    writes updated catalogs to disk
-  - `"i18n:check": "i18next --config i18next-parser.config.js --fail-on-update"` —
-    runs in CI; exits non-zero if the catalogs would change (i.e.,
-    a source file has a new key that's not in `en`)
-- Root `package.json` `devDependencies`: `i18next-parser@^9`.
+  - `"i18n:extract": "i18next-cli extract"` — writes updated
+    catalogs to disk
+  - `"i18n:check": "i18next-cli extract --dry-run --ci"` — runs
+    in CI; exits non-zero if a source key has no catalog entry
+- Root `package.json` `devDependencies`: `i18next-cli@^1`. The
+  legacy `i18next-parser` package is **deprecated upstream** —
+  every reference was migrated to `i18next-cli` during Wave C
+  /quality.
 
 **Acceptance**: `pnpm i18n:check` exits zero after W9's migration
 because every Slice 0 + 0b source string has a matching catalog
 entry. Deliberately introducing a new `t('viewport:not-in-catalog')`
-call in `Viewport.tsx` and re-running the check fails with a clear
-diff.
+call in `Viewport.tsx` and re-running the check fails with
+`Some files were updated. This should not happen in CI mode.`
 
 ### W9. `apps/web` wiring — `<I18nProvider>` + `i18n.ts` bootstrap
 
@@ -829,7 +837,7 @@ Linux VM; every box ticked.
 | --------------------- | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Library**           | **`react-i18next@^15` + `i18next@^23`**                                                                    | Most mature React binding; universal core runs in browser, Fastify, Web Workers, Node; best translation-service ecosystem; battle-tested with React 19.                                           |
 | **Catalog format**    | JSON namespace files (`locales/<lang>/<ns>.json`)                                                          | Industry-standard interchange; accepted by Crowdin / Lokalise / Transifex / Weblate natively.                                                                                                     |
-| **Extraction**        | `i18next-parser@^9` (dev only)                                                                             | Deterministic output, merge-friendly, CLI-first, integrates with the `i18n:check` CI gate.                                                                                                        |
+| **Extraction**        | `i18next-cli@^1` (dev only)                                                                                | Modern, scope-aware analyzer that recognises hook-based namespace binding (`useT('viewport')`); replaces the deprecated `i18next-parser`. Integrates with the `i18n:check` CI gate.               |
 | **Type safety**       | `declare module 'i18next'` resource augmentation                                                           | Compile-time `t('ns:key')` checking with zero runtime cost. No codegen package.                                                                                                                   |
 | **Launch locales**    | `en` (source) + `de` (complete first translation)                                                          | English required; German chosen for user affiliation (rwth-aachen.de) + BambuLab market alignment. Third language is a one-line addition.                                                         |
 | **URL convention**    | **No locale in URL — `cad_locale` cookie + localStorage only**                                             | URLs stay stable across languages; no React Router locale segment; the server reads the same cookie to translate error envelopes.                                                                 |
@@ -838,7 +846,7 @@ Linux VM; every box ticked.
 | **Loading strategy**  | Bundled statically at Slice 0b scope (3 namespaces, <5 KB per locale)                                      | Simple; scales to lazy loading via `i18next-http-backend` from Slice 4+ when the catalog crosses ~50 KB.                                                                                          |
 | **Server runtime**    | `createServerI18n({ locale })` per request; Slice 1 attaches `request.t` via a cookie-aware onRequest hook | Request-scoped; no global mutable locale state; cookie-first resolution so the server matches what the client displays.                                                                           |
 | **Error envelope**    | `@cad/protocol` `ErrorEnvelopeSchema` grows an optional `i18nKey` field in Slice 1                         | Server sends machine-parseable code + English fallback in `message`; client re-translates using the active locale.                                                                                |
-| **Source language**   | English                                                                                                    | Industry default; every dev writes the English key inline (`t('auth.invalid_credentials')`); `i18next-parser` extracts to `locales/en/*.json`.                                                    |
+| **Source language**   | English                                                                                                    | Industry default; every dev writes the English key inline (`t('auth.invalid_credentials')`); `i18next-cli` extracts to `locales/en/*.json`.                                                       |
 | **Fallback language** | English                                                                                                    | If a key is missing in `de`, the `en` value renders and a dev console warning fires.                                                                                                              |
 | **Pluralization**     | ICU MessageFormat via `i18next-icu@^2`                                                                     | Handles complex cases (Slavic plurals, fractional plurals) without hand-rolled logic.                                                                                                             |
 | **Number + date**     | `Intl.NumberFormat` / `Intl.DateTimeFormat` via `i18next`'s built-in interpolator                          | Native, no extra package, locale-aware.                                                                                                                                                           |
@@ -860,7 +868,7 @@ slices or stay explicitly out of scope.
 | Integration (i18n) | `createBrowserI18n()` + `createServerI18n()` resolve keys correctly for both locales, fallback works, instances are isolated | `packages/i18n/test/instance.test.ts`                |
 | Component (i18n)   | `<I18nProvider>` + `useT()` in happy-dom, `<Trans>` re-export                                                                | `packages/i18n/test/react.test.tsx`                  |
 | Component (web)    | `Viewport.tsx` renders correctly under both locales via a test `<I18nProvider>`, `LanguageSwitcher` updates state            | `apps/web/test/{Viewport,LanguageSwitcher}.test.tsx` |
-| Catalog linting    | `i18next-parser` in check mode; every `t(...)` call in the tree has a catalog entry                                          | `pnpm i18n:check` (CI job)                           |
+| Catalog linting    | `i18next-cli extract --dry-run --ci`; every `t(...)` call in the tree has a catalog entry                                    | `pnpm i18n:check` (CI job)                           |
 | UI e2e             | Parameterized `box-renders` — one run per locale; asserts both deterministic hash AND localized overlay label                | `tests/e2e/src/box-renders.spec.ts`                  |
 
 Coverage gates enforced in CI:
@@ -904,11 +912,11 @@ Target: first-PR green run stays ≤ **10 minutes** end-to-end (the
 | ----------------------------------------------------------------------------------------- | ---------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `i18next` + `react-i18next` React 19 edge cases (`use()` semantics, concurrent rendering) | Low        | Med    | Both libraries explicitly document React 19 support in their changelogs; we cover the happy path via happy-dom component tests and the real browser via Playwright.        |
 | Bundle-size creep from i18next runtime (~40 KB min+gzip)                                  | Low        | Low    | Slice 0b web bundle budget is not regression-gated yet; 40 KB is tolerable. Lazy loading via `i18next-http-backend` stays on the table for Slice 4+ if the catalog grows.  |
-| Missing-key runtime errors silently falling back to the key name                          | Med        | Med    | `i18next-parser` in check mode on every PR catches this at compile time; `returnNull: false` ensures the English fallback always renders in dev; console warning fires.    |
+| Missing-key runtime errors silently falling back to the key name                          | Med        | Med    | `i18next-cli` in CI mode on every PR catches this at compile time; `returnNull: false` ensures the English fallback always renders in dev; console warning fires.          |
 | Catalog drift between `en` and `de` (German missing a key the dev just added)             | Med        | Med    | `pnpm i18n:extract` is idempotent and commits to both catalogs in parallel; the `i18n:check` gate fails if `en` has a key `de` doesn't (configurable via parser settings). |
 | Cookie not readable from Vite preview's `http://127.0.0.1:4173` in Playwright             | Low        | High   | Playwright's `context.addCookies({ url, sameSite: 'Lax' })` API sets cookies for a specific origin; the test uses this explicitly rather than `document.cookie`.           |
 | ICU pluralization rule mismatch (e.g., German genitive inflection)                        | Low        | Low    | Slice 0b catalog has no pluralized keys. When Slice 1 adds its first plural, it lands with a unit test that covers `en` and `de` plural forms.                             |
-| `i18next-parser` CJS config + ESM monorepo interop                                        | Low        | Low    | `i18next-parser.config.js` at the repo root is an explicit CJS file (`module.exports`); the rest of the monorepo stays ESM.                                                |
+| `i18next-cli` analyzer mistakes a wrapper hook for a `t()` call                           | Low        | Low    | `useT` is registered in `useTranslationNames` (not `functions`), so the analyzer treats it as a namespace-binding hook. Verified by the CI gate exiting zero on every PR.  |
 | Slice 0 Playwright journey regresses while adapting to the locale parameter               | Med        | Med    | The existing assertion (tessellation hash) is preserved byte-for-byte; the new assertion (localized label) is additive. Both run per locale, one fails if either drifts.   |
 | Server-side `createServerI18n` leaking locale state between requests                      | Low        | High   | Factory always calls `i18next.createInstance()` — never returns a shared instance. Unit test verifies two back-to-back calls produce isolated instances.                   |
 | Storybook / MDX content localization surprise from Slice 4b                               | Low        | Low    | Slice 4b reuses this package's catalog format; any disagreement surfaces at Slice 4b planning time, not at execution.                                                      |

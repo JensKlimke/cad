@@ -16,12 +16,11 @@ import { LanguageSwitcher } from '../src/components/LanguageSwitcher.js';
 
 type I18nInstance = Awaited<ReturnType<typeof createBrowserI18n>>;
 
-// eslint-disable-next-line unicorn/no-document-cookie -- test needs direct cookie jar access to simulate cleared state
 function clearCookies(): void {
   for (const entry of document.cookie.split(';')) {
     const name = entry.split('=')[0]?.trim();
     if (name) {
-      // eslint-disable-next-line unicorn/no-document-cookie -- see above
+      // eslint-disable-next-line unicorn/no-document-cookie -- test needs direct cookie jar access to simulate cleared state
       document.cookie = `${name}=; Path=/; Max-Age=0`;
     }
   }

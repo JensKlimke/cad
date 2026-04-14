@@ -15,11 +15,13 @@ export default defineConfig({
   extract: {
     input: [
       'apps/web/src/**/*.{ts,tsx}',
-      // Slice 1 will add `apps/server/src/**/*.ts` here once the
-      // Fastify server lands. i18next-cli tolerates missing globs
-      // (unlike legacy i18next-parser), so we could pre-declare it
-      // — but it's still cleaner to add it when the directory
-      // actually exists.
+      // Slice 1 / Wave B2: the Fastify server raises
+      // `request.t('errors:...')` from its error envelope mapper
+      // and route handlers. The extractor scans server source
+      // from the moment apps/server/src exists so missing keys
+      // fail the i18n-check CI gate the same way they do for the
+      // web app.
+      'apps/server/src/**/*.ts',
     ],
     output: 'packages/i18n/locales/{{language}}/{{namespace}}.json',
     defaultNS: 'common',

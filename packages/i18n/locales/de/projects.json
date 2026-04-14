@@ -1,0 +1,20 @@
+{
+  "card.created_at": "Erstellt am {date}",
+  "card.open": "Öffnen",
+  "delete_dialog.confirm_label": "Geben Sie den Projektnamen ein, um zu bestätigen",
+  "delete_dialog.submit": "Löschen",
+  "delete_dialog.title": "Projekt löschen",
+  "delete_dialog.warning": "Diese Aktion kann nicht rückgängig gemacht werden.",
+  "detail.documents_title": "Dokumente",
+  "detail.new_document": "Neues Dokument",
+  "document.placeholder_name": "Standard",
+  "list.create_button": "Neues Projekt",
+  "list.empty": "Noch keine Projekte. Erstellen Sie Ihr erstes Projekt, um loszulegen.",
+  "list.title": "Projekte",
+  "new_dialog.name_label": "Name",
+  "new_dialog.name_placeholder": "Testprojekt",
+  "new_dialog.submit": "Erstellen",
+  "new_dialog.title": "Projekt erstellen",
+  "rename_dialog.submit": "Speichern",
+  "rename_dialog.title": "Projekt umbenennen"
+}

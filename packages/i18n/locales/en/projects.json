@@ -1,0 +1,20 @@
+{
+  "card.created_at": "Created {date}",
+  "card.open": "Open",
+  "delete_dialog.confirm_label": "Type the project name to confirm",
+  "delete_dialog.submit": "Delete",
+  "delete_dialog.title": "Delete project",
+  "delete_dialog.warning": "This action cannot be undone.",
+  "detail.documents_title": "Documents",
+  "detail.new_document": "New document",
+  "document.placeholder_name": "Default",
+  "list.create_button": "New project",
+  "list.empty": "No projects yet. Create your first one to get started.",
+  "list.title": "Projects",
+  "new_dialog.name_label": "Name",
+  "new_dialog.name_placeholder": "Smoke Test",
+  "new_dialog.submit": "Create",
+  "new_dialog.title": "Create project",
+  "rename_dialog.submit": "Save",
+  "rename_dialog.title": "Rename project"
+}

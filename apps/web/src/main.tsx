@@ -1,4 +1,5 @@
 import { I18nProvider } from '@cad/i18n';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 
@@ -16,10 +17,23 @@ if (!(rootElement instanceof HTMLElement)) {
 // i18next instance — no flash of English before detection resolves.
 const i18n = await i18nInstancePromise;
 
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 30 * 1000,
+      gcTime: 5 * 60 * 1000,
+      refetchOnWindowFocus: false,
+      retry: false,
+    },
+  },
+});
+
 createRoot(rootElement).render(
   <StrictMode>
     <I18nProvider i18n={i18n}>
-      <App />
+      <QueryClientProvider client={queryClient}>
+        <App />
+      </QueryClientProvider>
     </I18nProvider>
   </StrictMode>,
 );

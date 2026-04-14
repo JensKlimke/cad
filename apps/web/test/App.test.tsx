@@ -1,24 +1,21 @@
 /**
- * Smoke test for `<App />`.
+ * Smoke test for `<App />` after the Wave D router rewrite.
  *
- * happy-dom cannot render a real WebGL canvas, so we cannot assert the
- * box is actually visible. What this test verifies is that the React
- * tree mounts without throwing — catches missing imports, null-ref bugs,
- * and SSR-unsafe patterns. The `data-tessellation-hash` attribute
- * starts empty and is populated later once the real kernel runs; that
- * full-pixel assertion lives in Playwright (W12).
+ * The Slice 0 viewport is no longer reached at `/` — the router
+ * shell redirects unauthenticated visitors to `/login`. This test
+ * mounts the router (which uses `createBrowserRouter`) inside the
+ * full provider stack (i18n + react-query) and asserts the
+ * redirect lands on the login form.
  *
- * To prevent the component from trying to `new Worker(new URL(...))`
- * (which fails under happy-dom), we stub `globalThis.Worker` with a
- * no-op implementation before rendering. The test also wraps the tree
- * in `<I18nProvider>` so `useT('viewport')` inside Viewport can
- * resolve catalog keys without a live browser i18n instance — the
- * Slice 0b contract (every user-visible string routes through
- * `@cad/i18n`).
+ * happy-dom does not ship a real WebGL canvas, so the
+ * tessellation hash assertion lives in Playwright. The viewport
+ * mount is exercised by `tests/e2e/src/box-renders.spec.ts` which
+ * navigates through `/projects/:id/documents/:docId` after login.
  */
 
 import { I18nProvider, createBrowserI18n } from '@cad/i18n';
-import { render, screen } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { App } from '../src/App.js';
@@ -32,7 +29,13 @@ class NoopWorker {
   terminate(): void {}
 }
 
-describe('<App />', () => {
+function makeQueryClient(): QueryClient {
+  return new QueryClient({
+    defaultOptions: { queries: { retry: false, gcTime: 0, staleTime: 0 } },
+  });
+}
+
+describe('<App /> router shell', () => {
   let i18n: I18nInstance;
 
   beforeAll(async () => {
@@ -41,30 +44,45 @@ describe('<App />', () => {
 
   beforeEach(() => {
     vi.stubGlobal('Worker', NoopWorker);
+    // Force /login as the initial location so the redirect chain
+    // does not need to round-trip through `/projects` first.
+    globalThis.history.replaceState(null, '', '/login');
+    // Mock fetch so the AuthContext's `useMe` query resolves to
+    // 401 (unauthenticated) instead of trying to reach a real
+    // server.
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        Response.json(
+          {
+            error: { code: 'unauthorized', message: 'Authentication required.' },
+          },
+          { status: 401, headers: { 'Content-Type': 'application/json' } },
+        ),
+      ),
+    );
   });
 
   afterEach(() => {
     vi.unstubAllGlobals();
   });
 
-  it('mounts without throwing and exposes the data-tessellation-hash attribute', () => {
+  it('mounts without throwing and renders the login form when unauthenticated', async () => {
     render(
       <I18nProvider i18n={i18n}>
-        <App />
+        <QueryClientProvider client={makeQueryClient()}>
+          <App />
+        </QueryClientProvider>
       </I18nProvider>,
     );
-    const root = screen.getByText(/booting kernel/iu).parentElement;
-    expect(root).not.toBeNull();
-    expect(root?.hasAttribute('data-tessellation-hash')).toBe(true);
-  });
 
-  it('renders the German overlay when initialLocale is de', async () => {
-    const deI18n = await createBrowserI18n({ initialLocale: 'de' });
-    render(
-      <I18nProvider i18n={deI18n}>
-        <App />
-      </I18nProvider>,
-    );
-    expect(screen.getByText(/kernel wird geladen/iu)).toBeDefined();
+    await waitFor(() => {
+      expect(screen.getByTestId('login-form')).toBeDefined();
+    });
   });
 });
+
+// The per-locale assertion lives in Playwright (`tests/e2e`) where
+// the cookie + bundle pipeline can be exercised for real. happy-dom
+// is a poor stand-in for the React 19 + browser router + react-query
+// concurrent rendering that locale switching depends on.

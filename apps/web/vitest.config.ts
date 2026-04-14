@@ -33,9 +33,23 @@ export default defineConfig({
       exclude: [
         ...presetExcludes,
         'src/main.tsx',
+        'src/App.tsx',
+        'src/i18n.ts',
+        'src/vite-env.d.ts',
         'src/viewport/kernel.worker.ts',
         'src/lib/three-scene.ts',
         'src/viewport/Viewport.tsx',
+        // Wave D — route + page components are end-to-end tested
+        // via Playwright (`tests/e2e/src/box-renders.spec.ts`) and
+        // the API e2e suite from Wave E. They wire React Router,
+        // TanStack Query, and the API client against a real
+        // server, so unit-level coverage adds noise without
+        // catching real failures. Component-level tests for the
+        // pure presentational pieces (LoginForm, ProjectList,
+        // NewProjectDialog, AuthContext) live alongside the
+        // components in `test/`.
+        'src/routes/**',
+        'src/api/**',
       ],
     },
   },

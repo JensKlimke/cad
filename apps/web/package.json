@@ -20,10 +20,14 @@
   "dependencies": {
     "@cad/i18n": "workspace:*",
     "@cad/kernel": "workspace:*",
+    "@cad/protocol": "workspace:*",
+    "@tanstack/react-query": "^5.99.0",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
+    "react-router": "^7.14.1",
     "replicad-opencascadejs": "^0.23.0",
-    "three": "^0.183.2"
+    "three": "^0.183.2",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@cad/config": "workspace:*",

@@ -8,10 +8,18 @@
  * `vi.stubGlobal` inside the specific test; we intentionally do not
  * polyfill them globally so tests that need them surface the dependency.
  *
- * The only global we do install is a minimal `requestAnimationFrame`
- * scheduler, because React 19 uses it for scheduling and happy-dom's
- * implementation is a no-op.
+ * The setup also wires `@testing-library/react`'s `cleanup()` into an
+ * `afterEach` hook so DOM state from one test never leaks into the next
+ * — without it, a second `render()` in the same file finds two copies
+ * of every element and `getByTestId` throws on the duplication.
  */
+
+import { cleanup } from '@testing-library/react';
+import { afterEach } from 'vitest';
+
+afterEach(() => {
+  cleanup();
+});
 
 if (typeof globalThis.requestAnimationFrame !== 'function') {
   globalThis.requestAnimationFrame = (callback: FrameRequestCallback): number => {

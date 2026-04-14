@@ -23,7 +23,7 @@ import { createCookieLanguageDetector } from './detector.js';
 import { DEFAULT_LOCALE, SUPPORTED_LOCALES, type Locale } from './locales.js';
 import { resources } from './resources.js';
 
-const NAMESPACES = ['common', 'errors', 'viewport'] as const;
+const NAMESPACES = ['auth', 'common', 'errors', 'projects', 'viewport'] as const;
 const DEFAULT_NAMESPACE = 'common';
 
 export interface BrowserI18nOptions {

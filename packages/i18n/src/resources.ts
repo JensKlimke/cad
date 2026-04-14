@@ -12,11 +12,15 @@
  * automatically — everything else propagates through TypeScript.
  */
 
+import authDe from '../locales/de/auth.json' with { type: 'json' };
 import commonDe from '../locales/de/common.json' with { type: 'json' };
 import errorsDe from '../locales/de/errors.json' with { type: 'json' };
+import projectsDe from '../locales/de/projects.json' with { type: 'json' };
 import viewportDe from '../locales/de/viewport.json' with { type: 'json' };
+import authEn from '../locales/en/auth.json' with { type: 'json' };
 import commonEn from '../locales/en/common.json' with { type: 'json' };
 import errorsEn from '../locales/en/errors.json' with { type: 'json' };
+import projectsEn from '../locales/en/projects.json' with { type: 'json' };
 import viewportEn from '../locales/en/viewport.json' with { type: 'json' };
 
 /**
@@ -28,13 +32,17 @@ import viewportEn from '../locales/en/viewport.json' with { type: 'json' };
  */
 export const resources = {
   en: {
+    auth: authEn,
     common: commonEn,
     errors: errorsEn,
+    projects: projectsEn,
     viewport: viewportEn,
   },
   de: {
+    auth: authDe,
     common: commonDe,
     errors: errorsDe,
+    projects: projectsDe,
     viewport: viewportDe,
   },
 } as const;

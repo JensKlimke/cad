@@ -1,0 +1,76 @@
+# Docker Compose stack for the CAD on-prem baseline.
+#
+# Slice 1 Wave A scope: postgres + minio + minio-init only. The
+# migrator, server, and web services land in Wave E (W1b) when their
+# Dockerfiles can actually reference buildable artifacts.
+#
+# Local development:
+#
+#   cp deploy/compose/.env.example deploy/compose/.env
+#   docker compose -f deploy/compose/docker-compose.yml up -d postgres minio minio-init
+#
+# Both services are also consumed by `@cad/tests-containers` via
+# Testcontainers — that path is independent and does not require this
+# compose stack to be running.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: cad-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-cad}
+      POSTGRES_USER: ${POSTGRES_USER:-cad}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?required}
+    ports:
+      - '${POSTGRES_PORT:-5432}:5432'
+    volumes:
+      - cad-pg-data:/var/lib/postgresql/data
+      - ./postgres-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-cad} -d ${POSTGRES_DB:-cad}']
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
+
+  minio:
+    image: quay.io/minio/minio:RELEASE.2025-04-08T15-41-24Z
+    container_name: cad-minio
+    restart: unless-stopped
+    command: server /data --console-address ':9001'
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?required}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?required}
+    ports:
+      - '${MINIO_PORT:-9000}:9000'
+      - '${MINIO_CONSOLE_PORT:-9001}:9001'
+    volumes:
+      - cad-minio-data:/data
+    healthcheck:
+      test: ['CMD', 'mc', 'ready', 'local']
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
+
+  minio-init:
+    image: quay.io/minio/mc:RELEASE.2025-04-08T15-39-49Z
+    container_name: cad-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    restart: 'no'
+    entrypoint: ['/bin/sh', '/scripts/01-make-bucket.sh']
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?required}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?required}
+      MINIO_BUCKET: ${MINIO_BUCKET:-cad-artifacts}
+    volumes:
+      - ./minio-init:/scripts:ro
+
+volumes:
+  cad-pg-data:
+    name: cad-pg-data
+  cad-minio-data:
+    name: cad-minio-data

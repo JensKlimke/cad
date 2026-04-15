@@ -12,12 +12,16 @@
     "lint": "eslint ."
   },
   "dependencies": {
-    "fastify": "^5.8.4",
+    "@cad/db": "workspace:*",
+    "@cad/protocol": "workspace:*",
+    "@cad/server": "workspace:*",
+    "fastify": "^5.8.5",
     "fastify-type-provider-zod": "^6.1.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
     "@cad/config": "workspace:*",
+    "@cad/tests-containers": "workspace:*",
     "@types/node": "^25.6.0",
     "@types/supertest": "^7.2.0",
     "@vitest/coverage-v8": "^4.1.4",

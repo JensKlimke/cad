@@ -29,7 +29,7 @@ import {
   type ZodTypeProvider,
 } from 'fastify-type-provider-zod';
 
-import { ApiError, toErrorEnvelope } from './errors.js';
+import { statusCodeFor, toErrorEnvelope } from './errors.js';
 import authPlugin from './plugins/auth.js';
 import configPlugin from './plugins/config.js';
 import dbPlugin from './plugins/db.js';
@@ -42,6 +42,7 @@ import { authRoutes } from './routes/auth/index.js';
 import { documentsRoutes } from './routes/documents/index.js';
 import { healthRoute } from './routes/health.js';
 import { projectsRoutes } from './routes/projects/index.js';
+import { seedOnFirstBoot } from './services/seeder.js';
 
 import type { Env } from './config/env.js';
 
@@ -72,7 +73,7 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   // exception becomes the @cad/protocol ErrorEnvelopeSchema shape.
   app.setErrorHandler((error, request, reply) => {
     const envelope = toErrorEnvelope(error, request.id);
-    const statusCode = error instanceof ApiError ? error.statusCode : 500;
+    const statusCode = statusCodeFor(error);
     if (statusCode >= 500) {
       request.log.error({ err: error }, 'unhandled error in request handler');
     } else {
@@ -91,6 +92,13 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   await app.register(storagePlugin, { env: options.env });
   await app.register(authPlugin, { env: options.env });
   await app.register(openapiPlugin);
+
+  // Seed the default workspace + admin user on first boot. The
+  // seeder is idempotent (gates on `COUNT(*) = 0`), so re-running
+  // against a populated database is a no-op. Without this call,
+  // every `POST /auth/login` returns `invalid_credentials` because
+  // the workspace and admin user only exist after seeding.
+  await seedOnFirstBoot(app.db, options.env);
 
   await app.register(healthRoute);
   await app.register(authRoutes);

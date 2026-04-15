@@ -5,6 +5,25 @@
   "description": "Fastify on-prem REST API for the CAD monorepo. Slice 1 baseline.",
   "type": "module",
   "main": "./dist/index.js",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./app": {
+      "types": "./dist/app.d.ts",
+      "default": "./dist/app.js"
+    },
+    "./config/env": {
+      "types": "./dist/config/env.d.ts",
+      "default": "./dist/config/env.js"
+    },
+    "./services/seeder": {
+      "types": "./dist/services/seeder.d.ts",
+      "default": "./dist/services/seeder.js"
+    },
+    "./package.json": "./package.json"
+  },
   "files": [
     "dist",
     "README.md"

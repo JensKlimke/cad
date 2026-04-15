@@ -32,8 +32,7 @@ import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 
 const ProjectScopedParams = z.object({ projectId: UlidSchema });
 const DocumentIdParams = z.object({ id: UlidSchema });
-const ArtifactKeyParams = z.object({
-  id: UlidSchema,
+const ArtifactKeyQuery = z.object({
   key: z.string().min(1).max(255),
 });
 
@@ -250,10 +249,11 @@ export const documentsRoutes: FastifyPluginAsyncZod = async (fastify) => {
   );
 
   fastify.get(
-    '/documents/:id/artifacts/:key:sign',
+    '/documents/:id/artifacts:sign',
     {
       schema: {
-        params: ArtifactKeyParams,
+        params: DocumentIdParams,
+        querystring: ArtifactKeyQuery,
         response: { 200: ArtifactGetUrlResponseSchema },
       },
       preHandler: fastify.requireAuth,
@@ -271,17 +271,18 @@ export const documentsRoutes: FastifyPluginAsyncZod = async (fastify) => {
       if (document === null) {
         throw notFound('document');
       }
-      if (!isKeyForDocument(request.params.key, document.id)) {
+      if (!isKeyForDocument(request.query.key, document.id)) {
         // Reject keys that don't carry this document's prefix —
         // prevents one document from minting a URL for another's
-        // artifacts.
+        // artifacts. Keys are opaque to the client; crossing them
+        // here catches both bugs and directory-traversal attempts.
         throw new ApiError({
           code: 'documents.invalid_artifact_key',
           message: 'The artifact key does not belong to this document.',
           statusCode: 400,
         });
       }
-      const presigned = await fastify.storage.presignGet(request.params.key);
+      const presigned = await fastify.storage.presignGet(request.query.key);
       return {
         url: presigned.url,
         expiresAt: presigned.expiresAt.toISOString(),

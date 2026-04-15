@@ -6,5 +6,7 @@
   "generic": "Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut.",
   "network.timeout": "Die Anfrage hat das Zeitlimit überschritten. Bitte erneut versuchen.",
   "network.unreachable": "Server nicht erreichbar. Bitte überprüfen Sie Ihre Verbindung.",
-  "projects.not_found": "Projekt nicht gefunden."
+  "projects.not_found": "Projekt nicht gefunden.",
+  "request.rejected": "Die Anfrage wurde abgelehnt.",
+  "validation.failed": "Die Anfrage ist ungültig. Bitte überprüfen Sie die markierten Felder."
 }

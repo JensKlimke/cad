@@ -6,5 +6,7 @@
   "generic": "Something went wrong. Please try again.",
   "network.timeout": "The request timed out. Please try again.",
   "network.unreachable": "Cannot reach the server. Check your connection.",
-  "projects.not_found": "Project not found."
+  "projects.not_found": "Project not found.",
+  "request.rejected": "The request was rejected.",
+  "validation.failed": "The request is invalid. Check the highlighted fields."
 }

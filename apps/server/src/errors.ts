@@ -45,6 +45,47 @@ export class ApiError extends Error {
 }
 
 /**
+ * Fastify-ish error shape: Fastify and `fastify-type-provider-zod`
+ * decorate thrown errors with `statusCode` and (for Zod rejections)
+ * a `validation` array. We look for both without importing the
+ * plugin's concrete types, which would couple the error handler
+ * to a transitive dependency.
+ */
+interface FastifyValidationError {
+  readonly statusCode?: number;
+  readonly validation?: readonly unknown[];
+  readonly validationContext?: string;
+  readonly message?: string;
+}
+
+function asFastifyError(error: unknown): FastifyValidationError | undefined {
+  if (typeof error !== 'object' || error === null) {
+    return undefined;
+  }
+  return error as FastifyValidationError;
+}
+
+/**
+ * Resolve the HTTP status code to emit for a thrown error.
+ *
+ * - `ApiError` carries its own `statusCode`.
+ * - Fastify's own errors (validation, 404, unsupported media) set
+ *   `statusCode` on the error object; honour whatever Fastify
+ *   derived.
+ * - Everything else is treated as an internal 500.
+ */
+export function statusCodeFor(error: unknown): number {
+  if (error instanceof ApiError) {
+    return error.statusCode;
+  }
+  const fastifyError = asFastifyError(error);
+  if (fastifyError?.statusCode !== undefined && fastifyError.statusCode >= 400) {
+    return fastifyError.statusCode;
+  }
+  return 500;
+}
+
+/**
  * Map an `ApiError` (or any unknown value) into the canonical
  * `ErrorEnvelope` shape. `requestId` is supplied by the Fastify
  * error handler from `request.id`.
@@ -61,6 +102,47 @@ export function toErrorEnvelope(error: unknown, requestId?: string): ErrorEnvelo
       ...(requestId === undefined ? {} : { requestId }),
     };
   }
+
+  // Fastify validation errors (Zod params/body/querystring) arrive
+  // with `error.validation` populated. Emit a stable envelope the
+  // web client can re-translate via `errors:validation.failed`.
+  const fastifyError = asFastifyError(error);
+  if (fastifyError?.validation !== undefined) {
+    return {
+      error: {
+        code: 'validation.failed',
+        message: fastifyError.message ?? 'Request validation failed.',
+        i18nKey: 'errors:validation.failed',
+        details: {
+          issues: fastifyError.validation as readonly unknown[],
+          ...(fastifyError.validationContext === undefined
+            ? {}
+            : { context: fastifyError.validationContext }),
+        },
+      },
+      ...(requestId === undefined ? {} : { requestId }),
+    };
+  }
+
+  // Any other Fastify error that carries a 4xx statusCode (404
+  // not-found, 415 unsupported-media, etc.) still deserves a
+  // non-generic envelope so the client can distinguish it from
+  // genuine internal failures.
+  if (
+    fastifyError?.statusCode !== undefined &&
+    fastifyError.statusCode >= 400 &&
+    fastifyError.statusCode < 500
+  ) {
+    return {
+      error: {
+        code: 'request.rejected',
+        message: fastifyError.message ?? 'Request rejected.',
+        i18nKey: 'errors:request.rejected',
+      },
+      ...(requestId === undefined ? {} : { requestId }),
+    };
+  }
+
   // Anything else is an unexpected internal failure. Never leak
   // raw error messages — they may carry stack frames or PII.
   return {

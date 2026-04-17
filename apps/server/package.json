@@ -44,6 +44,7 @@
     "@cad/db": "workspace:*",
     "@cad/i18n": "workspace:*",
     "@cad/protocol": "workspace:*",
+    "@cad/runtime": "workspace:*",
     "@fastify/cookie": "^11.0.2",
     "@fastify/cors": "^11.2.0",
     "@fastify/helmet": "^13.0.2",

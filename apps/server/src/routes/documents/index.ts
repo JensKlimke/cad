@@ -17,6 +17,9 @@ import {
   ArtifactGetUrlResponseSchema,
   ArtifactPutUrlRequestSchema,
   ArtifactPutUrlResponseSchema,
+  type BuildDocumentFailureDetails,
+  type BuildDocumentResponse,
+  BuildDocumentResponseSchema,
   CreateDocumentRequestSchema,
   DocumentSchema,
   ListDocumentsResponseSchema,
@@ -24,9 +27,10 @@ import {
   UlidSchema,
   UpdateDocumentRequestSchema,
 } from '@cad/protocol';
+import { executeDocument, RuntimeBuildError, type RuntimeBuildResult } from '@cad/runtime';
 import { z } from 'zod';
 
-import { ApiError, notFound, unauthorized } from '../../errors.js';
+import { ApiError, buildFailed, notFound, unauthorized } from '../../errors.js';
 
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 
@@ -66,6 +70,67 @@ function artifactKey(documentId: string, filename: string): string {
 /** Verify the supplied artifact key belongs to the document. */
 function isKeyForDocument(key: string, documentId: string): boolean {
   return key.startsWith(`docs/${documentId}/`);
+}
+
+function serializeBuildResponse(
+  documentId: string,
+  artifactKey: string,
+  artifactUrl: string,
+  artifactExpiresAt: string,
+  build: RuntimeBuildResult,
+): BuildDocumentResponse {
+  return {
+    documentId,
+    artifactKey,
+    artifactUrl,
+    artifactExpiresAt,
+    build: {
+      documentHash: build.documentHash,
+      parameterOrder: [...build.parameterOrder],
+      parameters: Object.fromEntries(
+        Object.entries(build.parameters).map(([name, value]) => [
+          name,
+          {
+            name: value.name,
+            value: value.value,
+            unit: value.unit,
+            source:
+              'value' in value.source
+                ? {
+                    kind: 'number' as const,
+                    value: value.source.value,
+                    unit: value.source.unit,
+                  }
+                : {
+                    kind: 'expression' as const,
+                    expression: value.source.expression,
+                    unit: value.source.unit,
+                  },
+          },
+        ]),
+      ),
+      features: build.features.map((feature) => ({
+        id: feature.id,
+        kind: feature.kind,
+        inputHash: feature.inputHash,
+        cached: feature.cached,
+      })),
+      tessellation: {
+        positions: [...build.tessellation.positions],
+        normals: [...build.tessellation.normals],
+        indices: [...build.tessellation.indices],
+        metadata: {
+          hash: build.tessellation.metadata.hash,
+          triangleCount: build.tessellation.metadata.triangleCount,
+          vertexCount: build.tessellation.metadata.vertexCount,
+          bbox: {
+            min: [...build.tessellation.metadata.bbox.min] as [number, number, number],
+            max: [...build.tessellation.metadata.bbox.max] as [number, number, number],
+          },
+        },
+      },
+    },
+  };
 }
 
 export const documentsRoutes: FastifyPluginAsyncZod = async (fastify) => {
@@ -287,6 +352,52 @@ export const documentsRoutes: FastifyPluginAsyncZod = async (fastify) => {
         url: presigned.url,
         expiresAt: presigned.expiresAt.toISOString(),
       };
+    },
+  );
+
+  fastify.post(
+    '/documents/:id/build',
+    {
+      schema: {
+        params: DocumentIdParams,
+        response: { 200: BuildDocumentResponseSchema },
+      },
+      preHandler: fastify.requireAuth,
+    },
+    async (request) => {
+      const user = request.user;
+      if (user === undefined) {
+        throw unauthorized();
+      }
+      const repo = createDocumentRepo(fastify.db);
+      const document = await repo.get({
+        workspaceId: user.workspaceId,
+        id: request.params.id,
+      });
+      if (document === null) {
+        throw notFound('document');
+      }
+      let build;
+      try {
+        build = await executeDocument(document.tsSource);
+      } catch (error) {
+        if (error instanceof RuntimeBuildError) {
+          throw buildFailed(error.message, 422, {
+            diagnostics: error.diagnostics.map((diagnostic) => ({
+              code: diagnostic.code,
+              message: diagnostic.message,
+              ...(diagnostic.range === undefined ? {} : { range: { ...diagnostic.range } }),
+              ...(diagnostic.path === undefined ? {} : { path: [...diagnostic.path] }),
+              ...(diagnostic.context === undefined ? {} : { context: { ...diagnostic.context } }),
+            })),
+          } satisfies BuildDocumentFailureDetails);
+        }
+        throw buildFailed(error instanceof Error ? error.message : String(error));
+      }
+      const key = `builds/${document.id}/${ulid()}.json`;
+      await fastify.storage.putObject(key, JSON.stringify(build, null, 2), 'application/json');
+      const presigned = await fastify.storage.presignGet(key);
+      return serializeBuildResponse(document.id, key, presigned.url, presigned.expiresAt.toISOString(), build);
     },
   );
 };

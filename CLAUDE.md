@@ -10,15 +10,63 @@ An AI-ready, web-based, parametric CAD system. The design goal is to surpass Fre
 
 ## Current state (important)
 
-The repo is at **pre-Slice-0**: only a placeholder `src/index.ts`, a minimal `package.json`, and `tsconfig.json` exist. The monorepo structure described in PLAN.md (`packages/*`, `apps/*`, `deploy/*`) has **not been created yet**.
+The repo is at **Slice 1 shipped**. Slices 0, 0b, and 1 are implemented; the next planned implementation slice is **Slice 2**. The current monorepo, compose stack, and test surface are green locally.
 
-This means:
+### What exists
 
-- There is no `pnpm-workspace.yaml`, no Turborepo config, no `packages/kernel`, no `packages/authoring`, no server, no tests.
-- The only working command is `npm run build` (which runs `tsc` on the stub file).
-- When asked to "start Slice 0", follow PLAN.md § Slice 0 literally — create the monorepo layout, wire up the testing pyramid scaffold, and prove every CI layer runs green before adding features.
+```
+packages/
+  config/      — shared tsconfig, eslint, vitest presets
+  db/          — Drizzle ORM schema, client, repositories, migrations (Postgres)
+  i18n/        — i18next runtime, en/de catalogs, server + browser init
+  kernel/      — replicad geometry kernel (browser worker + deterministic tessellation hash)
+  protocol/    — Zod 4 schemas: auth, projects, documents, common (UlidSchema, ErrorEnvelope, PageParams)
 
-Do not assume any file or package exists just because PLAN.md names it. Verify with `ls` / `glob` first.
+apps/
+  cli/         — placeholder (Slice 0 stub)
+  server/      — Fastify 5 REST API: auth (argon2+JWT-in-cookie), projects CRUD, documents CRUD,
+                  presigned artifact URLs (MinIO/S3), i18n error envelopes, Drizzle+Postgres
+  web/         — React Router v7 + TanStack Query v5, auth flow (LoginForm, RequireAuth),
+                  project list/detail, document host route, typed apiFetch client, Vite build
+
+tests/
+  api/         — Testcontainers-backed API e2e suite (24 int tests: lifecycle, auth, projects, documents)
+  compose/     — Docker Compose integration test for stack boot + persistence cycle
+  containers/  — Testcontainers helpers (startPostgres, startMinio)
+  e2e/         — Playwright lifecycle journey (login → create project → open document) per locale
+  mutation/    — Stryker scaffold (not yet active)
+
+deploy/
+  compose/     — full Slice 1 stack: postgres + minio + minio-init + migrator + server + web
+```
+
+### Slice 1 wave status
+
+| Wave | Content | Status |
+|------|---------|--------|
+| A | Foundation — protocol schemas, db schema, Docker Compose infra | shipped (`9f6c94e`) |
+| B1 | DB migrations + repositories + integration tests | shipped (`d981f23`) |
+| B2 | Server bootstrap + plugins + auth service | shipped (`d027b2a`) |
+| C | Server API surface — auth/projects/documents routes | shipped (`a19aad0`) |
+| D | Web UI — React Router + auth flow + project list | shipped (`f9ec95a`) |
+| E1 | API e2e suite + seedOnFirstBoot wiring + error handler fixes | shipped (`e101fde`) |
+| E2 | Playwright lifecycle, Dockerfiles, compose integration test | shipped |
+| F | Verification doc, retro, CI extensions | shipped |
+
+Slice 1 is closed enough to treat as the working baseline. New implementation work should start from Slice 2 unless the task is explicitly a Slice 1 fixup.
+
+### Key patterns established
+
+- **`buildApp({ env, logger })` factory** — returns a ready-but-not-listening Fastify instance. Tests pass `{ logger: false }`. The factory calls `seedOnFirstBoot(app.db, env)` to create the default workspace + admin user on first boot (idempotent).
+- **Module augmentation** — Fastify decorators (`db`, `storage`, `config`, `requireAuth`, `oidc`, `request.user`, `request.t`, `request.locale`) are declared via `declare module 'fastify'` in each plugin file. These augmentations do NOT propagate through `@cad/server` subpath exports. External consumers (like tests/api) use a separate `createDbClient` for introspection.
+- **`@cad/server` subpath exports** — `./app` (buildApp), `./config/env` (parseEnv), `./services/seeder` (seedOnFirstBoot). Consumer packages import via these subpaths, never via dist/ paths.
+- **`INTEGRATION=1` gating** — `*.int.test.ts` files are excluded by default. Set `INTEGRATION=1` to include them. Vitest config uses `passWithNoTests: true` for suites that are entirely integration-tier.
+- **Error handler** — `statusCodeFor(error)` honours Fastify's own statusCode on non-ApiError (Zod validation → 400, not 500). `toErrorEnvelope` produces `validation.failed` / `request.rejected` / `internal` envelopes with i18nKey.
+- **Artifact presigned URLs** — `POST /documents/:id/artifacts:sign` mints PUT URLs; `GET /documents/:id/artifacts:sign?key=…` mints GET URLs. Key is passed via querystring because find-my-way cannot parse `:param:literal` suffix patterns.
+- **Cookie-based JWT** — `cad_session` cookie, HTTP-only, SameSite=Strict, Secure only in production. `cad_locale` cookie for i18n. Server revocation table in `sessions` table, checked on every `requireAuth`.
+- **Testcontainers harness** — `tests/api/src/createApiTestContext.ts` boots Postgres + MinIO, installs citext+pgcrypto extensions, runs migrations, builds app, queries seeded workspace+admin. ~4s per context. Each spec file owns its own context; teardown is reverse-order with try/catch.
+- **Compose-backed system verification** — `tests/compose` boots the full Docker Compose stack on isolated host ports, verifies `/health` + `/ready`, creates a project/document, restarts the stack, and confirms persistence.
+- **Playwright lifecycle harness** — `tests/e2e` boots the compose stack in global setup, runs the login → create project → open document flow in `en` and `de`, and asserts the viewport tessellation hash on the document route.
 
 ## Hard architectural constraints
 
@@ -56,13 +104,37 @@ Deliberately asymmetric — **wide at unit + integration + API e2e, narrow at Pl
 
 ## Common commands
 
-Only the scaffold command exists today. Everything else will be added in Slice 0.
-
 ```bash
-npm run build   # tsc → dist/
-```
+# Install / link
+pnpm install
 
-When Slice 0 lands, this section should be updated with: `pnpm install`, `pnpm dev`, `pnpm test`, `pnpm test:e2e`, `pnpm typecheck`, `docker compose up`, etc. Until then, prefer `pnpm` in any new scripts (PLAN.md mandates pnpm + Turborepo).
+# Full pipeline (what CI runs)
+pnpm typecheck
+pnpm test
+pnpm lint               # eslint + lint:handbook
+pnpm format:check       # prettier
+pnpm i18n:check         # i18next-cli extract --dry-run --ci
+pnpm audit:deps         # vulns + unused + licences
+
+# Integration tier (requires Docker)
+INTEGRATION=1 pnpm --filter @cad/db test              # repositories against real Postgres
+INTEGRATION=1 pnpm --filter @cad/tests-api test        # API e2e (24 specs, ~6s)
+pnpm test:compose                                     # full compose stack + persistence cycle
+
+# Per-package
+pnpm --filter @cad/server build         # tsc → dist/
+pnpm --filter @cad/server dev           # tsx watch
+pnpm --filter @cad/web dev              # Vite dev server
+pnpm --filter @cad/web build            # Vite production build
+
+# Docker Compose (full Slice 1 stack)
+cp deploy/compose/.env.example deploy/compose/.env
+docker compose --env-file deploy/compose/.env -f deploy/compose/docker-compose.yml up --build -d
+docker compose -f deploy/compose/docker-compose.yml down
+
+# Migrations (after Postgres is running)
+DATABASE_URL=postgresql://cad:cad@localhost:5432/cad pnpm --filter @cad/db migrate
+```
 
 ## Golden demos (acceptance evidence)
 

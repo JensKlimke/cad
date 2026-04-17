@@ -8,9 +8,12 @@ import {
   ArtifactGetUrlResponseSchema,
   ArtifactPutUrlRequestSchema,
   ArtifactPutUrlResponseSchema,
+  BuildDocumentFailureDetailsSchema,
+  BuildDocumentResponseSchema,
   CreateDocumentRequestSchema,
   DocumentSchema,
   ListDocumentsResponseSchema,
+  RuntimeDiagnosticSchema,
   UpdateDocumentRequestSchema,
 } from '../src/documents.js';
 
@@ -125,5 +128,82 @@ describe('ArtifactGetUrlResponseSchema', () => {
       expiresAt: ISO,
     });
     expect(result.url).toContain('minio.test');
+  });
+});
+
+describe('BuildDocumentResponseSchema', () => {
+  it('parses a build response', () => {
+    const result = BuildDocumentResponseSchema.parse({
+      documentId: VALID_ULID,
+      artifactKey: 'builds/01H/result.json',
+      artifactUrl: 'https://minio.test/cad-artifacts/builds/01H/result.json',
+      artifactExpiresAt: ISO,
+      build: {
+        documentHash: 'a'.repeat(64),
+        parameterOrder: ['width'],
+        parameters: {
+          width: {
+            name: 'width',
+            value: 10,
+            unit: 'mm',
+            source: {
+              kind: 'number',
+              value: 10,
+              unit: 'mm',
+            },
+          },
+        },
+        features: [
+          {
+            id: 'pad_1',
+            kind: 'pad',
+            inputHash: 'b'.repeat(64),
+            cached: false,
+          },
+        ],
+        tessellation: {
+          positions: [0, 0, 0],
+          normals: [0, 0, 1],
+          indices: [0, 1, 2],
+          metadata: {
+            hash: 'c'.repeat(64),
+            triangleCount: 1,
+            vertexCount: 3,
+            bbox: {
+              min: [0, 0, 0],
+              max: [1, 1, 1],
+            },
+          },
+        },
+      },
+    });
+    expect(result.build.features[0]?.kind).toBe('pad');
+  });
+});
+
+describe('RuntimeDiagnosticSchema', () => {
+  it('parses a diagnostic with optional range and context', () => {
+    const result = RuntimeDiagnosticSchema.parse({
+      code: 'expr.unit_mismatch',
+      message: 'Operator "+" requires matching units, received mm and deg.',
+      range: { start: 12, end: 25 },
+      path: ['height'],
+      context: { operator: '+', left: 'mm', right: 'deg' },
+    });
+    expect(result.range?.start).toBe(12);
+  });
+});
+
+describe('BuildDocumentFailureDetailsSchema', () => {
+  it('parses structured build diagnostics', () => {
+    const result = BuildDocumentFailureDetailsSchema.parse({
+      diagnostics: [
+        {
+          code: 'runtime.unsupported_import',
+          message: 'Only "@cad/sdk" imports are allowed.',
+        },
+      ],
+    });
+    expect(result.diagnostics[0]?.code).toBe('runtime.unsupported_import');
   });
 });

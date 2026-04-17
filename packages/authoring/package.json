@@ -1,0 +1,39 @@
+{
+  "name": "@cad/authoring",
+  "version": "0.0.1",
+  "private": true,
+  "description": "TypeScript source parsing, codemods, and printing for CAD documents.",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "clean": "rimraf dist",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@cad/sdk": "workspace:*",
+    "prettier": "^3.8.2",
+    "typescript": "^6.0.2"
+  },
+  "devDependencies": {
+    "@cad/config": "workspace:*",
+    "@types/node": "^25.6.0",
+    "@vitest/coverage-v8": "^4.1.4",
+    "rimraf": "^6.1.3",
+    "vitest": "^4.1.4"
+  }
+}

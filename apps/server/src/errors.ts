@@ -184,3 +184,17 @@ export function notFound(resource: 'project' | 'document', message?: string): Ap
     i18nKey: `errors:${resource}s.not_found`,
   });
 }
+
+export function buildFailed(
+  message: string,
+  statusCode = 422,
+  details?: Readonly<Record<string, unknown>>,
+): ApiError {
+  return new ApiError({
+    code: 'documents.build_failed',
+    message,
+    statusCode,
+    i18nKey: 'errors:generic',
+    ...(details === undefined ? {} : { details }),
+  });
+}

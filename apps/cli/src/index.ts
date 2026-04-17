@@ -11,6 +11,9 @@
  * exit handling; the binary launcher in `bin/cad.js` just imports this file.
  */
 
+import { readFile } from 'node:fs/promises';
+
+import { executeDocument, RuntimeBuildError } from '@cad/runtime';
 import { Command } from 'commander';
 
 import { formatHuman, formatJson, getVersionInfo } from './commands/version.js';
@@ -20,9 +23,27 @@ interface VersionCommandOptions {
   readonly json?: boolean;
 }
 
+interface BuildCommandOptions {
+  readonly timeoutMs?: string;
+  readonly memoryMb?: string;
+}
+
 function printVersion(options: VersionCommandOptions): void {
   const info = getVersionInfo();
   process.stdout.write(`${options.json ? formatJson(info) : formatHuman(info)}\n`);
+}
+
+function formatBuildFailure(error: RuntimeBuildError): string {
+  const diagnostics = error.diagnostics
+    .map((diagnostic) => {
+      const range =
+        diagnostic.range === undefined
+          ? ''
+          : ` [${String(diagnostic.range.start)}-${String(diagnostic.range.end)}]`;
+      return `  - ${diagnostic.code}${range}: ${diagnostic.message}`;
+    })
+    .join('\n');
+  return diagnostics.length > 0 ? `${error.message}\n${diagnostics}` : error.message;
 }
 
 /**
@@ -42,6 +63,30 @@ export function createProgram(): Command {
     .option('--json', 'Output as JSON')
     .action((options: VersionCommandOptions) => {
       printVersion(options);
+    });
+
+  program
+    .command('build')
+    .description('Execute a document.ts file and emit deterministic tessellation JSON')
+    .argument('<path>', 'Path to the document.ts source file')
+    .option('--timeout-ms <number>', 'Runtime timeout in milliseconds', '5000')
+    .option('--memory-mb <number>', 'Worker memory cap in megabytes', '128')
+    .action(async (path: string, options: BuildCommandOptions) => {
+      try {
+        const source = await readFile(path, 'utf8');
+        const result = await executeDocument(source, {
+          timeoutMs: Number(options.timeoutMs ?? '5000'),
+          memoryMb: Number(options.memoryMb ?? '128'),
+        });
+        process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+      } catch (error) {
+        if (error instanceof RuntimeBuildError) {
+          process.stderr.write(`cad: ${formatBuildFailure(error)}\n`);
+          process.exitCode = 1;
+          return;
+        }
+        throw error;
+      }
     });
 
   // Default action (bare `cad` invocation) prints human-readable version info.

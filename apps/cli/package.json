@@ -27,6 +27,7 @@
   },
   "dependencies": {
     "@cad/kernel": "workspace:*",
+    "@cad/runtime": "workspace:*",
     "commander": "^14.0.3"
   },
   "devDependencies": {

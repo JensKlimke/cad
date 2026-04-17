@@ -14,6 +14,8 @@ import { defineConfig, devices } from '@playwright/test';
 export default defineConfig({
   testDir: './src',
   testMatch: '**/*.spec.ts',
+  globalSetup: './src/global-setup.ts',
+  globalTeardown: './src/global-teardown.ts',
 
   // Single-test suite; no need for parallelism at Slice 0 scope.
   fullyParallel: false,
@@ -37,7 +39,7 @@ export default defineConfig({
     : [['html', { open: 'never', outputFolder: 'playwright-report' }], ['list']],
 
   use: {
-    baseURL: 'http://127.0.0.1:4173',
+    baseURL: process.env['PLAYWRIGHT_BASE_URL'] ?? 'http://127.0.0.1:15173',
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
@@ -50,17 +52,4 @@ export default defineConfig({
     },
   ],
 
-  // Launch the web app's Vite preview server (production build) so the
-  // test runs against real bundled output, not the dev server. `pnpm dev`
-  // has source-map and HMR overhead that distorts readiness timing; the
-  // preview server is the closest approximation of production behaviour
-  // Playwright can target locally.
-  webServer: {
-    command: 'pnpm --filter @cad/web preview --host 127.0.0.1 --port 4173 --strictPort',
-    url: 'http://127.0.0.1:4173',
-    reuseExistingServer: !process.env['CI'],
-    timeout: 120_000,
-    stdout: 'pipe',
-    stderr: 'pipe',
-  },
 });

@@ -32,6 +32,8 @@ export interface StorageService {
   presignPut(key: string, contentType: string): Promise<PresignedUrl>;
   /** Mint a short-TTL presigned GET URL for `key`. */
   presignGet(key: string): Promise<PresignedUrl>;
+  /** Persist an object to the artifacts bucket. */
+  putObject(key: string, body: string | Uint8Array, contentType: string): Promise<void>;
   /** Underlying S3 client (for advanced use; routes should not need this). */
   readonly client: S3Client;
   /** Bucket name. */
@@ -91,6 +93,17 @@ export function createStorageService({ env }: StorageServiceOptions): StorageSer
       const command = new GetObjectCommand({ Bucket: bucket, Key: key });
       const url = await getSignedUrl(client, command, { expiresIn: PRESIGN_TTL_SECONDS });
       return { url, expiresAt: new Date(Date.now() + PRESIGN_TTL_SECONDS * 1000) };
+    },
+
+    async putObject(key, body, contentType) {
+      await client.send(
+        new PutObjectCommand({
+          Bucket: bucket,
+          Key: key,
+          Body: body,
+          ContentType: contentType,
+        }),
+      );
     },
   };
 }

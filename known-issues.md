@@ -135,18 +135,6 @@ Alternative approaches considered and rejected:
 
 **Workaround:** The WASM asset is loaded lazily by the Web Worker, not on the critical path — users see the React shell before the kernel boots. Real page-weight optimization (code-splitting, three.js tree-shaking, brotli compression) is a later slice concern. Not a regression.
 
-## [P3] `unicorn/number-literal-case` default conflicts with Prettier 3 hex normalization — Lint toolchain
-
-**Observed:** 2026-04-12
-**Where:** `pnpm lint:code` + `pnpm format:check` on `apps/web/src/lib/three-scene.ts`
-**Affects:** Any file containing hexadecimal numeric literals
-
-**Symptom:** Out-of-the-box, `unicorn/number-literal-case` enforces **uppercase** hex digits (`0xFF_FF_FF`) while Prettier 3 normalizes them to **lowercase** (`0xff_ff_ff`). The two tools fight over every hex literal and neither `eslint --fix` nor `prettier --write` converges.
-
-**Root cause:** Unicorn's rule default predates Prettier 3's hex normalization (added in 2024). The rule has a `hexadecimalValue` option that accepts `'lowercase'` to match Prettier.
-
-**Workaround:** `packages/config/src/eslint.js` overrides the rule with `{ hexadecimalValue: 'lowercase' }` so Unicorn and Prettier agree. Resolved at the preset level; no per-file action needed.
-
 ## [P3] Vitest 4 v8 coverage text reporter renders an empty file table for small packages — Tooling
 
 **Observed:** 2026-04-12
@@ -166,18 +154,6 @@ The lcov report in `coverage/lcov.info` contains the correct per-file data, so t
 **Root cause:** Likely a rendering bug in `@vitest/coverage-v8@4.1.4` when the covered file list is short. To be investigated — upstream.
 
 **Workaround:** None needed — the `lcov` and `html` reporters emit correct data, coverage thresholds are enforced correctly, and the text reporter's summary section works. Revisit if it starts masking real coverage regressions.
-
-## [P3] `testcontainers` v11 moved Postgres module to `@testcontainers/postgresql` — Test tooling
-
-**Observed:** 2026-04-12
-**Where:** `pnpm --filter @cad/tests-containers typecheck` while scaffolding Wave C
-**Affects:** `tests/containers` (Postgres factory only — MinIO still uses `GenericContainer` from the root `testcontainers` package)
-
-**Symptom:** `import { PostgreSqlContainer } from 'testcontainers'` reports `TS2305: Module has no exported member 'PostgreSqlContainer'`. In v10 the class was re-exported from the main package; v11 moved each first-party container module to its own `@testcontainers/<name>` scoped package so the base install stays small.
-
-**Root cause:** Upstream restructuring in `testcontainers` v11 — documented in their migration notes. Not a bug.
-
-**Workaround:** Added `@testcontainers/postgresql@^11.14.0` as a direct dep alongside the base `testcontainers` package and imported `PostgreSqlContainer` from it. The base package is still needed for `GenericContainer` + `Wait` (used by the MinIO factory). The two packages share the same major version tag.
 
 ## [P3] `ssh2` native binding builds from source on `pnpm install` — Install tooling
 

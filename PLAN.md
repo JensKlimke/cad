@@ -1,5 +1,11 @@
 # PLAN — AI-Ready Web CAD System
 
+## Current Repo Status
+
+- **Shipped**: Slice 0 (foundations), Slice 0b (i18n baseline), Slice 1 (project/document lifecycle on-prem baseline)
+- **Current baseline**: a full Docker Compose stack (`postgres` + `minio` + `minio-init` + `migrator` + `server` + `web`), local-user auth, project/document CRUD, MinIO presigned artifact URLs, locale-aware web/server flow, compose integration tests, and a Playwright lifecycle journey in `en` + `de`
+- **Next planned implementation slice**: Slice 2 — SDK, expression engine, authoring layer, and runtime
+
 ## Context
 
 Building a production-grade, high-scale, web-based parametric CAD system inspired by FreeCAD 1.0 workflows but designed to surpass it. The goal is a modern, collaborative, AI-driven CAD tool with:
@@ -319,7 +325,7 @@ Quick reference for when a human can open something and feel progress:
 
 - **Slice 0** — rotating box in the browser (first pixel on screen)
 - **Slice 0b** — same box, overlays translate (`cad_locale=de` → "Kernel wird geladen…")
-- **Slice 1** — `docker compose up`, log in, create a project, see it persist after refresh
+- **Slice 1** — `docker compose up --build`, log in, create a project/document, and see it persist through a `down` / `up` cycle
 - **Slice 3** — open a document and pan/zoom/orbit/pick with a trackpad
 - **Slice 4** — scrub a parameter in the inspector _or_ Monaco; both stay in sync
 - **Slice 5** — draw a constrained rectangle in sketch mode; Monaco updates itself
@@ -361,13 +367,14 @@ Lands the `@cad/i18n` workspace package, wires `apps/web` through `react-i18next
 
 Persist a project and re-open it.
 
-- Docker Compose: postgres + minio + server (`deploy/compose/docker-compose.yml`)
+- Docker Compose: `postgres` + `minio` + `minio-init` + `migrator` + `server` + `web` (`deploy/compose/docker-compose.yml`)
 - PostgreSQL schema: workspace/project/document/version (single tenant)
 - Fastify REST: create/list/get project & document
 - Local-user auth: username + password, JWT session, seeded admin on first boot; pluggable OIDC adapter stub
 - Web shell: project list, create project, open document (still the box)
 - Document stored as TS source + JSON metadata + blob artifact URLs (MinIO)
-  **Ships**: `docker compose up`, create project, see it after refresh.
+- Compose integration test proves stack boot + persistence cycle; Playwright lifecycle proves login → create project → open document in both `en` and `de`
+  **Ships**: `docker compose up --build`, create a project and document, and see them persist after restart.
 
 ### Slice 2 — SDK, Expression Engine, Authoring Layer, Runtime
 

@@ -25,6 +25,7 @@
     "test:db": "INTEGRATION=1 pnpm --filter @cad/db test",
     "test:api": "pnpm --filter @cad/tests-api test",
     "test:e2e": "pnpm --filter @cad/tests-e2e test",
+    "test:compose": "INTEGRATION=1 pnpm --filter @cad/tests-compose test",
     "audit": "tsx scripts/audit-deps.ts",
     "audit:deps": "tsx scripts/audit-deps.ts",
     "audit:vulns": "tsx scripts/audit-deps.ts --only=vulns",

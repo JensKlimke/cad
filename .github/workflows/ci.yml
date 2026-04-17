@@ -209,9 +209,9 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
-  test-e2e:
-    name: UI e2e (Playwright)
-    needs: build
+  test-compose:
+    name: Compose stack
+    needs: setup
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -223,7 +223,41 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
-      - uses: dtinth/setup-github-actions-caching-for-turbo@v1
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test:compose
+      - name: Cleanup compose stack
+        if: always()
+        run: docker compose --project-name cad-compose-test --env-file deploy/compose/.env.example -f deploy/compose/docker-compose.yml down --volumes --remove-orphans
+      - name: Publish compose test report
+        uses: mikepenz/action-junit-report@v5
+        if: always()
+        with:
+          check_name: Compose integration tests
+          report_paths: tests/compose/reports/junit.xml
+          require_tests: false
+          detailed_summary: true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: junit-compose
+          path: tests/compose/reports/junit.xml
+          retention-days: 7
+          if-no-files-found: ignore
+
+  test-e2e:
+    name: UI e2e (Playwright)
+    needs: setup
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: Resolve Playwright version
         id: playwright-version
@@ -241,10 +275,11 @@ jobs:
           else
             pnpm --filter @cad/tests-e2e exec playwright install --with-deps chromium
           fi
-      - name: Build web app (preview target)
-        run: pnpm turbo run build --filter=@cad/web
       - name: Run golden journey
         run: pnpm test:e2e
+      - name: Cleanup compose stack
+        if: always()
+        run: docker compose --project-name cad-e2e --env-file deploy/compose/.env.example -f deploy/compose/docker-compose.yml down --volumes --remove-orphans
       - name: Publish UI e2e test report
         uses: mikepenz/action-junit-report@v5
         if: always()

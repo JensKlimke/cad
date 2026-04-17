@@ -34,7 +34,7 @@ docker compose -f deploy/compose/docker-compose.yml up --build -d
 # wait for /health to return 200
 curl -fsS http://localhost:8080/health
 # log in as the seeded admin and create a project:
-open http://localhost:5173
+open http://localhost:15173
 ```
 
 …and every command exits zero. The browser shows a login form, the
@@ -1000,7 +1000,7 @@ GitHub Actions job-level changes:
 5. `curl -fsS http://localhost:8080/health` → 200
 6. `curl -fsS http://localhost:8080/ready` → 200 (indicates migrator
    finished and db/minio are reachable)
-7. Open `http://localhost:5173` → land on `/login`
+7. Open `http://localhost:15173` → land on `/login`
 8. Log in with the seeded admin from `.env`; land on `/projects` empty
    state
 9. Create a project named "Smoke Test"; confirm card appears

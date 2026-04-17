@@ -13,6 +13,8 @@
     "postinstall": "node scripts/patch-occt-esm.mjs && pnpm --filter @cad/config build",
     "build": "turbo run build",
     "typecheck": "turbo run typecheck",
+    "stack:up": "docker compose --env-file deploy/compose/.env -f deploy/compose/docker-compose.yml up --build -d",
+    "stack:down": "docker compose --env-file deploy/compose/.env -f deploy/compose/docker-compose.yml down --volumes --remove-orphans",
     "lint": "pnpm lint:code && pnpm lint:handbook",
     "lint:code": "eslint .",
     "lint:handbook": "tsx scripts/lint-handbook.ts",

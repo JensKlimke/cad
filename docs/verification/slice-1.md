@@ -17,7 +17,7 @@ machine before declaring Slice 1 complete.
 - [ ] `docker compose --env-file deploy/compose/.env -f deploy/compose/docker-compose.yml up --build -d`
 - [ ] `curl -fsS http://localhost:8080/health`
 - [ ] `curl -fsS http://localhost:8080/ready`
-- [ ] Open `http://localhost:5173/login` and confirm the login form renders
+- [ ] Open `http://localhost:15173/login` and confirm the login form renders
 
 ## Lifecycle
 

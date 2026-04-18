@@ -1,5 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
+import { E2E_BASE_URL } from './src/compose-env.js';
+
 /**
  * Playwright config for the CAD web editor's golden journey suite.
  *
@@ -39,7 +41,7 @@ export default defineConfig({
     : [['html', { open: 'never', outputFolder: 'playwright-report' }], ['list']],
 
   use: {
-    baseURL: process.env['PLAYWRIGHT_BASE_URL'] ?? 'http://127.0.0.1:15173',
+    baseURL: process.env['PLAYWRIGHT_BASE_URL'] ?? E2E_BASE_URL,
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',

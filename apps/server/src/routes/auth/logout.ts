@@ -15,6 +15,10 @@ import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 
 const COOKIE_NAME = 'cad_session';
 
+function shouldUseSecureSessionCookie(publicBaseUrl: string): boolean {
+  return new URL(publicBaseUrl).protocol === 'https:';
+}
+
 export const logoutRoute: FastifyPluginAsyncZod = async (fastify) => {
   fastify.post(
     '/auth/logout',
@@ -40,7 +44,12 @@ export const logoutRoute: FastifyPluginAsyncZod = async (fastify) => {
         expiresAt,
       });
 
-      reply.clearCookie(COOKIE_NAME, { path: '/' });
+      reply.clearCookie(COOKIE_NAME, {
+        path: '/',
+        httpOnly: true,
+        secure: shouldUseSecureSessionCookie(fastify.config.PUBLIC_BASE_URL),
+        sameSite: 'strict',
+      });
       return { ok: true as const };
     },
   );

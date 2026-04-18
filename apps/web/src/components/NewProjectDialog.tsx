@@ -15,15 +15,6 @@ export interface NewProjectDialogProps {
   readonly onSubmit: (name: string) => Promise<void> | void;
 }
 
-const DIALOG_STYLE: React.CSSProperties = {
-  background: '#161922',
-  color: '#e6e8ec',
-  border: 'none',
-  borderRadius: 8,
-  padding: 24,
-  minWidth: 320,
-};
-
 export function NewProjectDialog({
   open,
   onClose,
@@ -58,10 +49,13 @@ export function NewProjectDialog({
   };
 
   return (
-    <dialog ref={ref} style={DIALOG_STYLE} onClose={onClose} data-testid="new-project-dialog">
-      <form onSubmit={handleSubmit} method="dialog">
-        <h2 style={{ marginTop: 0 }}>{t('new_dialog.title')}</h2>
-        <label style={{ display: 'block', marginBottom: 12 }}>
+    <dialog ref={ref} className="workspace-dialog" onClose={onClose} data-testid="new-project-dialog">
+      <form onSubmit={handleSubmit} method="dialog" className="workspace-dialog__form">
+        <div className="workspace-dialog__header">
+          <p className="workspace-dialog__eyebrow">{t('new_dialog.eyebrow')}</p>
+          <h2 className="workspace-dialog__title">{t('new_dialog.title')}</h2>
+        </div>
+        <label className="workspace-dialog__field">
           <span>{t('new_dialog.name_label')}</span>
           <input
             type="text"
@@ -72,11 +66,21 @@ export function NewProjectDialog({
             data-testid="new-project-dialog-name"
           />
         </label>
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-          <button type="button" onClick={onClose} data-testid="new-project-dialog-cancel">
-            {t('new_dialog.title') /* placeholder; common:actions.cancel preferred */}
+        <div className="workspace-dialog__actions">
+          <button
+            type="button"
+            className="workspace-button workspace-button--ghost"
+            onClick={onClose}
+            data-testid="new-project-dialog-cancel"
+          >
+            {t('dialog.cancel')}
           </button>
-          <button type="submit" disabled={submitting} data-testid="new-project-dialog-submit">
+          <button
+            type="submit"
+            className="workspace-button workspace-button--primary"
+            disabled={submitting}
+            data-testid="new-project-dialog-submit"
+          >
             {t('new_dialog.submit')}
           </button>
         </div>

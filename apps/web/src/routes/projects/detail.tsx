@@ -16,7 +16,7 @@ import {
 } from '@cad/protocol';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { useNavigate, useParams } from 'react-router';
+import { Navigate, useNavigate, useParams } from 'react-router';
 
 import { apiFetch } from '../../api/client.js';
 import {
@@ -27,27 +27,8 @@ import {
 } from '../../api/projects.js';
 import { ConfirmDeleteDialog } from '../../components/ConfirmDeleteDialog.js';
 import { RenameProjectDialog } from '../../components/RenameProjectDialog.js';
-
-const PAGE_STYLE: React.CSSProperties = {
-  padding: 24,
-};
-
-const HEADER_STYLE: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: 12,
-  marginBottom: 24,
-};
-
-const DOC_LINK_STYLE: React.CSSProperties = {
-  display: 'inline-block',
-  padding: '8px 12px',
-  marginRight: 8,
-  background: '#161922',
-  color: '#e6e8ec',
-  borderRadius: 4,
-  textDecoration: 'none',
-};
+import { WorkspaceShell } from '../../components/WorkspaceShell.js';
+import { DEFAULT_DOCUMENT_SOURCE } from '../../documents/defaultSource.js';
 
 export function ProjectDetailRoute(): React.JSX.Element {
   const { id } = useParams<{ id: string }>();
@@ -77,7 +58,10 @@ export function ProjectDetailRoute(): React.JSX.Element {
       if (id === undefined) throw new Error('project id missing');
       return apiFetch(`/projects/${id}/documents`, {
         method: 'POST',
-        body: CreateDocumentRequestSchema.parse({ name: t('document.placeholder_name') }),
+        body: CreateDocumentRequestSchema.parse({
+          name: t('document.placeholder_name'),
+          tsSource: DEFAULT_DOCUMENT_SOURCE,
+        }),
         schema: DocumentSchema,
       });
     },
@@ -91,51 +75,111 @@ export function ProjectDetailRoute(): React.JSX.Element {
     return <div>404</div>;
   }
 
+  if (deleteProject.isSuccess) {
+    return <Navigate to="/projects" replace />;
+  }
+
   const project = projectQuery.data;
+  const documents = documentsQuery.data?.items ?? [];
+  const isLoading = projectQuery.isPending || documentsQuery.isPending;
+  const hasError = projectQuery.isError || documentsQuery.isError;
 
   return (
-    <main style={PAGE_STYLE} data-testid="project-detail">
-      <header style={HEADER_STYLE}>
-        <h1 style={{ margin: 0, flex: 1 }}>{project?.name ?? '…'}</h1>
-        <button
-          type="button"
-          onClick={() => setRenameOpen(true)}
-          data-testid="project-detail-rename"
-        >
-          {t('rename_dialog.title')}
-        </button>
-        <button
-          type="button"
-          onClick={() => setDeleteOpen(true)}
-          data-testid="project-detail-delete"
-        >
-          {t('delete_dialog.title')}
-        </button>
-      </header>
-      <h2>{t('detail.documents_title')}</h2>
-      <button
-        type="button"
-        onClick={() => void createDocument.mutateAsync()}
-        data-testid="project-detail-new-document"
-      >
-        {t('detail.new_document')}
-      </button>
-      <div style={{ marginTop: 16 }}>
-        {(documentsQuery.data?.items ?? []).map((doc) => (
-          <a
-            key={doc.id}
-            href={`/projects/${id}/documents/${doc.id}`}
-            style={DOC_LINK_STYLE}
-            data-testid={`document-link-${doc.id}`}
-            onClick={(event) => {
-              event.preventDefault();
-              navigate(`/projects/${id}/documents/${doc.id}`);
-            }}
+    <WorkspaceShell
+      title={project?.name ?? '…'}
+      description={hasError ? t('detail.error_body') : t('detail.description')}
+      projectLink={{ id, name: project?.name ?? '…' }}
+      testId="project-detail"
+      railBody={
+        <dl className="workspace-meta workspace-meta--compact">
+          <div className="workspace-meta__row">
+            <dt>{t('detail.summary_documents')}</dt>
+            <dd>{documents.length}</dd>
+          </div>
+          <div className="workspace-meta__row">
+            <dt>{t('detail.summary_status')}</dt>
+            <dd>{t('detail.summary_status_value')}</dd>
+          </div>
+        </dl>
+      }
+      headerActions={
+        <div className="workspace-inline-actions">
+          <button
+            type="button"
+            className="workspace-button workspace-button--primary"
+            onClick={() => void createDocument.mutateAsync()}
+            data-testid="project-detail-new-document"
           >
-            {doc.name}
-          </a>
-        ))}
-      </div>
+            {t('detail.new_document')}
+          </button>
+          <button
+            type="button"
+            className="workspace-button workspace-button--ghost"
+            onClick={() => setRenameOpen(true)}
+            data-testid="project-detail-rename"
+          >
+            {t('rename_dialog.title')}
+          </button>
+          <button
+            type="button"
+            className="workspace-button workspace-button--danger"
+            onClick={() => setDeleteOpen(true)}
+            data-testid="project-detail-delete"
+          >
+            {t('delete_dialog.title')}
+          </button>
+        </div>
+      }
+    >
+      <section className="workspace-panel workspace-panel--documents">
+        <div className="workspace-panel__header">
+          <div>
+            <p className="workspace-panel__eyebrow">{t('detail.documents_eyebrow')}</p>
+            <h3 className="workspace-panel__title">{t('detail.documents_title')}</h3>
+          </div>
+        </div>
+        <div className="document-list">
+          {isLoading && (
+            <div className="workspace-state workspace-state--panel" data-testid="project-detail-loading">
+              <p className="workspace-state__title">{t('states.loading_title')}</p>
+              <p className="workspace-state__body">{t('states.loading_body')}</p>
+            </div>
+          )}
+          {hasError && (
+            <div className="workspace-state workspace-state--panel" data-testid="project-detail-error">
+              <p className="workspace-state__title">{t('states.error_title')}</p>
+              <p className="workspace-state__body">{t('detail.error_body')}</p>
+            </div>
+          )}
+          {!isLoading &&
+            !hasError &&
+            documents.map((doc, index) => (
+              <a
+                key={doc.id}
+                href={`/projects/${id}/documents/${doc.id}`}
+                className="document-row"
+                data-testid={`document-link-${doc.id}`}
+                onClick={(event) => {
+                  event.preventDefault();
+                  navigate(`/projects/${id}/documents/${doc.id}`);
+                }}
+              >
+                <div className="document-row__index">{String(index + 1).padStart(2, '0')}</div>
+                <div className="document-row__content">
+                  <strong className="document-row__title">{doc.name}</strong>
+                  <span className="document-row__meta">{t('detail.document_ready')}</span>
+                </div>
+                <span className="document-row__action">{t('detail.open_document')}</span>
+              </a>
+            ))}
+          {!isLoading && !hasError && documents.length === 0 && (
+            <div className="workspace-empty workspace-empty--dense">
+              <p className="workspace-empty__title">{t('detail.documents_empty_title')}</p>
+              <p className="workspace-empty__body">{t('detail.documents_empty_body')}</p>
+            </div>
+          )}
+        </div>
+      </section>
 
       <RenameProjectDialog
         open={renameOpen}
@@ -155,6 +199,6 @@ export function ProjectDetailRoute(): React.JSX.Element {
           navigate('/projects', { replace: true });
         }}
       />
-    </main>
+    </WorkspaceShell>
   );
 }

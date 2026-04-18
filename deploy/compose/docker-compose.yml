@@ -122,6 +122,9 @@ services:
     build:
       context: ../..
       dockerfile: deploy/compose/web.Dockerfile
+      args:
+        VITE_PREFILL_LOGIN_EMAIL: ${ADMIN_EMAIL:-}
+        VITE_PREFILL_LOGIN_PASSWORD: ${ADMIN_INITIAL_PASSWORD:-}
     depends_on:
       server:
         condition: service_healthy

@@ -47,3 +47,6 @@ export const MeResponseSchema = z.object({
   createdAt: TimestampSchema,
 });
 export type MeResponse = z.infer<typeof MeResponseSchema>;
+
+export const MeSessionResponseSchema = MeResponseSchema.nullable();
+export type MeSessionResponse = z.infer<typeof MeSessionResponseSchema>;

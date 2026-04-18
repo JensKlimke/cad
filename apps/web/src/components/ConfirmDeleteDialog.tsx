@@ -16,15 +16,6 @@ export interface ConfirmDeleteDialogProps {
   readonly onConfirm: () => Promise<void> | void;
 }
 
-const DIALOG_STYLE: React.CSSProperties = {
-  background: '#161922',
-  color: '#e6e8ec',
-  border: 'none',
-  borderRadius: 8,
-  padding: 24,
-  minWidth: 320,
-};
-
 export function ConfirmDeleteDialog({
   open,
   resourceName,
@@ -64,11 +55,22 @@ export function ConfirmDeleteDialog({
   };
 
   return (
-    <dialog ref={ref} style={DIALOG_STYLE} onClose={onClose} data-testid="confirm-delete-dialog">
-      <h2 style={{ marginTop: 0 }}>{t('delete_dialog.title')}</h2>
-      <p style={{ color: '#ff6b6b' }}>{t('delete_dialog.warning')}</p>
-      <label style={{ display: 'block', marginBottom: 12 }}>
-        <span>{t('delete_dialog.confirm_label')}</span>
+    <dialog
+      ref={ref}
+      className="workspace-dialog"
+      onClose={onClose}
+      data-testid="confirm-delete-dialog"
+    >
+      <div className="workspace-dialog__form">
+        <div className="workspace-dialog__header">
+          <p className="workspace-dialog__eyebrow workspace-dialog__eyebrow--danger">
+            {t('delete_dialog.eyebrow')}
+          </p>
+          <h2 className="workspace-dialog__title">{t('delete_dialog.title')}</h2>
+        </div>
+        <p className="workspace-dialog__warning">{t('delete_dialog.warning')}</p>
+        <label className="workspace-dialog__field">
+          <span>{t('delete_dialog.confirm_label')}</span>
         <input
           type="text"
           value={typed}
@@ -76,19 +78,25 @@ export function ConfirmDeleteDialog({
           placeholder={resourceName}
           data-testid="confirm-delete-dialog-input"
         />
-      </label>
-      <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-        <button type="button" onClick={onClose}>
-          {t('delete_dialog.title') /* placeholder cancel */}
+        </label>
+        <div className="workspace-dialog__actions">
+          <button
+            type="button"
+            className="workspace-button workspace-button--ghost"
+            onClick={onClose}
+          >
+            {t('dialog.cancel')}
         </button>
         <button
           type="button"
+          className="workspace-button workspace-button--danger"
           disabled={typed !== resourceName || submitting}
           onClick={() => void handleConfirm()}
           data-testid="confirm-delete-dialog-submit"
         >
           {t('delete_dialog.submit')}
         </button>
+        </div>
       </div>
     </dialog>
   );

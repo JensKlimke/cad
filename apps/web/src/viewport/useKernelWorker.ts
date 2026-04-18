@@ -50,7 +50,7 @@ const INITIAL_STATE: KernelWorkerState = {
  * an earlier `box` value are discarded via the request-id check.
  */
 export function useKernelWorker(
-  box: BoxInput,
+  box: BoxInput | null,
   options: UseKernelWorkerOptions = {},
 ): KernelWorkerState {
   const factory = options.workerFactory ?? defaultWorkerFactory;
@@ -72,6 +72,10 @@ export function useKernelWorker(
 
   // Dispatch a fresh request whenever `box` changes.
   useEffect(() => {
+    if (box === null) {
+      setState({ result: null, error: null, pending: false });
+      return;
+    }
     const worker = workerRef.current;
     if (!worker) return;
 

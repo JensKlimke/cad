@@ -17,50 +17,54 @@ export interface ProjectListProps {
   readonly projects: readonly Project[];
   readonly onCreateClick: () => void;
   readonly onOpenProject: (id: string) => void;
+  readonly showHeader?: boolean;
 }
-
-const LIST_STYLE: React.CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
-  gap: 16,
-  padding: 24,
-};
-
-const HEADER_STYLE: React.CSSProperties = {
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-  padding: '24px 24px 0 24px',
-};
-
-const EMPTY_STYLE: React.CSSProperties = {
-  padding: 48,
-  textAlign: 'center',
-  color: '#a0a4ad',
-};
 
 export function ProjectList({
   projects,
   onCreateClick,
   onOpenProject,
+  showHeader = true,
 }: ProjectListProps): React.JSX.Element {
   const { t } = useT('projects');
   return (
-    <section data-testid="project-list">
-      <header style={HEADER_STYLE}>
-        <h1 style={{ margin: 0 }}>{t('list.title')}</h1>
-        <button type="button" onClick={onCreateClick} data-testid="project-list-create">
-          {t('list.create_button')}
-        </button>
-      </header>
+    <section className="workspace-section" data-testid="project-list">
+      {showHeader && (
+        <header className="workspace-section__header">
+          <div>
+            <p className="workspace-section__eyebrow">{t('list.eyebrow')}</p>
+            <h3 className="workspace-section__title">{t('list.title')}</h3>
+          </div>
+          <button
+            type="button"
+            className="workspace-button workspace-button--primary"
+            onClick={onCreateClick}
+            data-testid="project-list-create"
+          >
+            {t('list.create_button')}
+          </button>
+        </header>
+      )}
       {projects.length === 0 ? (
-        <p style={EMPTY_STYLE} data-testid="project-list-empty">
-          {t('list.empty')}
-        </p>
+        <div className="workspace-empty" data-testid="project-list-empty">
+          <div className="workspace-empty__icon" aria-hidden="true">
+            <span />
+            <span />
+          </div>
+          <p className="workspace-empty__title">{t('list.empty_title')}</p>
+          <p className="workspace-empty__body">{t('list.empty')}</p>
+          <button
+            type="button"
+            className="workspace-button workspace-button--primary"
+            onClick={onCreateClick}
+          >
+            {t('list.create_button')}
+          </button>
+        </div>
       ) : (
-        <ul style={LIST_STYLE}>
+        <ul className="project-grid">
           {projects.map((project) => (
-            <li key={project.id} style={{ listStyle: 'none' }}>
+            <li key={project.id} className="project-grid__item">
               <ProjectCard project={project} onOpen={onOpenProject} />
             </li>
           ))}

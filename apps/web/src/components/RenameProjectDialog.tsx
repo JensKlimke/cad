@@ -16,15 +16,6 @@ export interface RenameProjectDialogProps {
   readonly onSubmit: (name: string) => Promise<void> | void;
 }
 
-const DIALOG_STYLE: React.CSSProperties = {
-  background: '#161922',
-  color: '#e6e8ec',
-  border: 'none',
-  borderRadius: 8,
-  padding: 24,
-  minWidth: 320,
-};
-
 export function RenameProjectDialog({
   open,
   currentName,
@@ -63,10 +54,18 @@ export function RenameProjectDialog({
   };
 
   return (
-    <dialog ref={ref} style={DIALOG_STYLE} onClose={onClose} data-testid="rename-project-dialog">
-      <form onSubmit={handleSubmit} method="dialog">
-        <h2 style={{ marginTop: 0 }}>{t('rename_dialog.title')}</h2>
-        <label style={{ display: 'block', marginBottom: 12 }}>
+    <dialog
+      ref={ref}
+      className="workspace-dialog"
+      onClose={onClose}
+      data-testid="rename-project-dialog"
+    >
+      <form onSubmit={handleSubmit} method="dialog" className="workspace-dialog__form">
+        <div className="workspace-dialog__header">
+          <p className="workspace-dialog__eyebrow">{t('rename_dialog.eyebrow')}</p>
+          <h2 className="workspace-dialog__title">{t('rename_dialog.title')}</h2>
+        </div>
+        <label className="workspace-dialog__field">
           <span>{t('new_dialog.name_label')}</span>
           <input
             type="text"
@@ -76,15 +75,20 @@ export function RenameProjectDialog({
             data-testid="rename-project-dialog-name"
           />
         </label>
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-          <button type="button" onClick={onClose}>
-            {
-              t(
-                'rename_dialog.title',
-              ) /* placeholder cancel; common namespace dialog primitive lands in Slice 11 */
-            }
+        <div className="workspace-dialog__actions">
+          <button
+            type="button"
+            className="workspace-button workspace-button--ghost"
+            onClick={onClose}
+          >
+            {t('dialog.cancel')}
           </button>
-          <button type="submit" disabled={submitting} data-testid="rename-project-dialog-submit">
+          <button
+            type="submit"
+            className="workspace-button workspace-button--primary"
+            disabled={submitting}
+            data-testid="rename-project-dialog-submit"
+          >
             {t('rename_dialog.submit')}
           </button>
         </div>

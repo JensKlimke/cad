@@ -9,6 +9,7 @@ import {
   LoginResponseSchema,
   LogoutResponseSchema,
   MeResponseSchema,
+  MeSessionResponseSchema,
   UserRoleSchema,
 } from '../src/auth.js';
 
@@ -96,5 +97,11 @@ describe('MeResponseSchema', () => {
       createdAt: '2026-04-14T10:30:00Z',
     });
     expect(result.role).toBe('member');
+  });
+});
+
+describe('MeSessionResponseSchema', () => {
+  it('accepts null for an unauthenticated session probe', () => {
+    expect(MeSessionResponseSchema.parse(null)).toBeNull();
   });
 });

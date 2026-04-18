@@ -3,6 +3,12 @@ WORKDIR /workspace
 
 RUN corepack enable
 
+ARG VITE_PREFILL_LOGIN_EMAIL=""
+ARG VITE_PREFILL_LOGIN_PASSWORD=""
+
+ENV VITE_PREFILL_LOGIN_EMAIL=${VITE_PREFILL_LOGIN_EMAIL}
+ENV VITE_PREFILL_LOGIN_PASSWORD=${VITE_PREFILL_LOGIN_PASSWORD}
+
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json turbo.json tsconfig.base.json ./
 COPY scripts ./scripts
 COPY packages ./packages

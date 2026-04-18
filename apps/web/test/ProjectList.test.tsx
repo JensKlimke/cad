@@ -83,6 +83,6 @@ describe('<ProjectList />', () => {
       </I18nProvider>,
     );
     expect(screen.getByText('Projekte')).toBeDefined();
-    expect(screen.getByText('Neues Projekt')).toBeDefined();
+    expect(screen.getAllByText('Neues Projekt')).toHaveLength(2);
   });
 });

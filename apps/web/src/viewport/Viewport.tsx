@@ -13,11 +13,12 @@ import { createScene, type SceneHandles } from '../lib/three-scene.js';
 
 import { useKernelWorker } from './useKernelWorker.js';
 
-import type { BoxInput } from '@cad/kernel';
+import type { BoxInput, TessellationResult } from '@cad/kernel';
 
 const VIEWPORT_STYLE = {
-  width: '100vw',
-  height: '100vh',
+  width: '100%',
+  height: '100%',
+  minHeight: '100%',
   position: 'relative',
   background: '#0b0d12',
 } as const;
@@ -47,16 +48,20 @@ const ERROR_STYLE = {
 } as const;
 
 export interface ViewportProps {
-  readonly box: BoxInput;
+  readonly box?: BoxInput;
+  readonly tessellation?: TessellationResult;
 }
 
-export function Viewport({ box }: ViewportProps): React.JSX.Element {
+export function Viewport({ box, tessellation }: ViewportProps): React.JSX.Element {
   const { t } = useT('viewport');
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const handlesRef = useRef<SceneHandles | null>(null);
   const rafRef = useRef<number | null>(null);
 
-  const { result, error, pending } = useKernelWorker(box);
+  const workerState = useKernelWorker(box ?? null);
+  const result = tessellation ?? workerState.result;
+  const error = tessellation === undefined ? workerState.error : null;
+  const pending = tessellation === undefined ? workerState.pending : false;
 
   // Spin up or tear down the three.js scene whenever a new tessellation
   // arrives. StrictMode-safe: the cleanup releases GPU resources before a

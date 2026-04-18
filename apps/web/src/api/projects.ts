@@ -75,8 +75,10 @@ export function useDeleteProject() {
   const queryClient = useQueryClient();
   return useMutation<null, Error, string>({
     mutationFn: async (id) => apiFetch(`/projects/${id}`, { method: 'DELETE', schema: z.null() }),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: PROJECTS_QUERY_KEY });
+    onSuccess: (_, id) => {
+      queryClient.removeQueries({ queryKey: projectQueryKey(id), exact: true });
+      queryClient.removeQueries({ queryKey: ['projects', id, 'documents'], exact: true });
+      void queryClient.invalidateQueries({ queryKey: PROJECTS_QUERY_KEY, exact: true });
     },
   });
 }

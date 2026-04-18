@@ -19,30 +19,15 @@ export interface LoginFormProps {
   readonly onSuccess?: () => void;
 }
 
-const FORM_STYLE: React.CSSProperties = {
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 12,
-  maxWidth: 320,
-  margin: '64px auto',
-  padding: 24,
-  background: '#161922',
-  color: '#e6e8ec',
-  borderRadius: 8,
-  fontFamily: 'system-ui, -apple-system, sans-serif',
-};
-
-const ERROR_STYLE: React.CSSProperties = {
-  color: '#ff6b6b',
-  fontSize: 13,
-};
+const PREFILL_LOGIN_EMAIL = import.meta.env.VITE_PREFILL_LOGIN_EMAIL ?? '';
+const PREFILL_LOGIN_PASSWORD = import.meta.env.VITE_PREFILL_LOGIN_PASSWORD ?? '';
 
 export function LoginForm({ onSuccess }: LoginFormProps): React.JSX.Element {
   const { t } = useT('auth');
   const { t: tErrors } = useT('errors');
   const { login } = useAuth();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState(PREFILL_LOGIN_EMAIL);
+  const [password, setPassword] = useState(PREFILL_LOGIN_PASSWORD);
   const [error, setError] = useState<string | undefined>();
   const [submitting, setSubmitting] = useState(false);
 
@@ -83,38 +68,58 @@ export function LoginForm({ onSuccess }: LoginFormProps): React.JSX.Element {
   };
 
   return (
-    <form data-testid="login-form" onSubmit={handleSubmit} style={FORM_STYLE} noValidate>
-      <h1 style={{ margin: 0, fontSize: 20 }}>{t('login.title')}</h1>
-      <label>
-        <span>{t('login.email_label')}</span>
-        <input
-          type="email"
-          autoComplete="username"
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-          required
-          data-testid="login-email"
-        />
-      </label>
-      <label>
-        <span>{t('login.password_label')}</span>
-        <input
-          type="password"
-          autoComplete="current-password"
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-          required
-          data-testid="login-password"
-        />
-      </label>
-      {error !== undefined && (
-        <div role="alert" style={ERROR_STYLE} data-testid="login-error">
-          {error}
+    <section className="auth-card">
+      <div className="auth-card__brand">
+        <div className="auth-card__mark" aria-hidden="true">
+          <span />
+          <span />
+          <span />
         </div>
-      )}
-      <button type="submit" disabled={submitting} data-testid="login-submit">
-        {submitting ? t('login.submitting') : t('login.submit')}
-      </button>
-    </form>
+        <div>
+          <p className="auth-card__eyebrow">{t('login.eyebrow')}</p>
+          <h2 className="auth-card__title">{t('login.title')}</h2>
+        </div>
+      </div>
+      <p className="auth-card__subtitle">{t('login.subtitle')}</p>
+      <form data-testid="login-form" onSubmit={handleSubmit} className="auth-form" noValidate>
+        <label className="auth-field">
+          <span className="auth-field__label">{t('login.email_label')}</span>
+          <span className="auth-field__frame">
+            <input
+              type="email"
+              autoComplete="username"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              required
+              className="auth-field__input"
+              data-testid="login-email"
+            />
+          </span>
+        </label>
+        <label className="auth-field">
+          <span className="auth-field__label">{t('login.password_label')}</span>
+          <span className="auth-field__frame">
+            <input
+              type="password"
+              autoComplete="current-password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              required
+              className="auth-field__input"
+              data-testid="login-password"
+            />
+          </span>
+        </label>
+        {error !== undefined && (
+          <div role="alert" className="auth-form__error" data-testid="login-error">
+            {error}
+          </div>
+        )}
+        <button type="submit" disabled={submitting} className="auth-form__submit" data-testid="login-submit">
+          {submitting ? t('login.submitting') : t('login.submit')}
+        </button>
+      </form>
+      <p className="auth-card__help">{t('login.help')}</p>
+    </section>
   );
 }

@@ -2,6 +2,8 @@ import { execFile } from 'node:child_process';
 import path from 'node:path';
 import { promisify } from 'node:util';
 
+import { E2E_COMPOSE_ENV } from './compose-env.js';
+
 const execFileAsync = promisify(execFile);
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '../../..');
@@ -11,13 +13,7 @@ const PROJECT_NAME = process.env['PLAYWRIGHT_COMPOSE_PROJECT'] ?? 'cad-e2e';
 const DOCKER_TIMEOUT_MS = 300_000;
 const COMPOSE_ENV = {
   ...process.env,
-  POSTGRES_PORT: '15432',
-  MINIO_PORT: '19000',
-  MINIO_CONSOLE_PORT: '19001',
-  SERVER_PORT: '18080',
-  WEB_PORT: '15173',
-  PUBLIC_BASE_URL: 'http://127.0.0.1:15173',
-  CORS_ORIGINS: 'http://127.0.0.1:15173',
+  ...E2E_COMPOSE_ENV,
 };
 
 export default async function globalTeardown(): Promise<void> {

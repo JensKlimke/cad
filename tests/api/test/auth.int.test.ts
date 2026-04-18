@@ -83,12 +83,10 @@ describe('auth failure surfaces', () => {
     expect(envelope.error.i18nKey).toBe('errors:auth.invalid_credentials');
   });
 
-  it('rejects /auth/me without a session cookie as 401 unauthorized', async () => {
+  it('returns null from /auth/me without a session cookie', async () => {
     const response = await context.app.inject({ method: 'GET', url: '/auth/me' });
-    expect(response.statusCode).toBe(401);
-    const envelope = parseEnvelope(response.json());
-    expect(envelope.error.code).toBe('unauthorized');
-    expect(envelope.error.i18nKey).toBe('errors:auth.session_expired');
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toBeNull();
   });
 
   it('rejects a tampered JWT as 401 unauthorized', async () => {
@@ -135,7 +133,11 @@ describe('auth failure surfaces', () => {
   });
 
   it('exposes a request id on every error envelope', async () => {
-    const response = await context.app.inject({ method: 'GET', url: '/auth/me' });
+    const response = await context.app.inject({
+      method: 'GET',
+      url: '/auth/me',
+      cookies: { [SESSION_COOKIE_NAME]: 'not.a.valid.jwt' },
+    });
     const envelope = parseEnvelope(response.json());
     expect(typeof envelope.requestId).toBe('string');
     expect(envelope.requestId?.length ?? 0).toBeGreaterThan(0);
@@ -170,5 +172,22 @@ describe('auth failure surfaces', () => {
     const secondBody = second.json<LoginResponse>();
     expect(firstBody.userId).toBe(secondBody.userId);
     expect(firstBody.workspaceId).toBe(secondBody.workspaceId);
+  });
+
+  it('does not mark the session cookie Secure when PUBLIC_BASE_URL is http', async () => {
+    const response = await context.app.inject({
+      method: 'POST',
+      url: '/auth/login',
+      payload: {
+        email: context.env.ADMIN_EMAIL,
+        password: context.env.ADMIN_INITIAL_PASSWORD,
+      },
+    });
+    expect(response.statusCode).toBe(200);
+    const header = response.headers['set-cookie'];
+    const serialized = Array.isArray(header) ? header.join('\n') : (header ?? '');
+    expect(serialized).not.toContain('Secure');
+    expect(serialized).toContain('SameSite=Strict');
+    expect(serialized).toContain('HttpOnly');
   });
 });

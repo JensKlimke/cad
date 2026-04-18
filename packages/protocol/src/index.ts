@@ -24,11 +24,13 @@ export {
   LoginResponseSchema,
   LogoutResponseSchema,
   MeResponseSchema,
+  MeSessionResponseSchema,
   UserRoleSchema,
   type LoginRequest,
   type LoginResponse,
   type LogoutResponse,
   type MeResponse,
+  type MeSessionResponse,
   type UserRole,
 } from './auth.js';
 

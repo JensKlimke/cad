@@ -23,6 +23,10 @@ import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 
 const COOKIE_NAME = 'cad_session';
 
+function shouldUseSecureSessionCookie(publicBaseUrl: string): boolean {
+  return new URL(publicBaseUrl).protocol === 'https:';
+}
+
 export const loginRoute: FastifyPluginAsyncZod = async (fastify) => {
   fastify.post(
     '/auth/login',
@@ -72,7 +76,7 @@ export const loginRoute: FastifyPluginAsyncZod = async (fastify) => {
 
       reply.setCookie(COOKIE_NAME, issued.token, {
         httpOnly: true,
-        secure: env.NODE_ENV === 'production',
+        secure: shouldUseSecureSessionCookie(env.PUBLIC_BASE_URL),
         sameSite: 'strict',
         path: '/',
         maxAge: env.JWT_EXPIRES_SECONDS,

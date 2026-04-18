@@ -6,9 +6,9 @@ import {
   LoginRequestSchema,
   LoginResponseSchema,
   LogoutResponseSchema,
-  MeResponseSchema,
+  MeSessionResponseSchema,
   type LoginRequest,
-  type MeResponse,
+  type MeSessionResponse,
 } from '@cad/protocol';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
@@ -17,26 +17,9 @@ import { apiFetch } from './client.js';
 export const ME_QUERY_KEY = ['auth', 'me'] as const;
 
 export function useMe() {
-  return useQuery<MeResponse | null>({
+  return useQuery<MeSessionResponse>({
     queryKey: ME_QUERY_KEY,
-    queryFn: async () => {
-      try {
-        return await apiFetch('/auth/me', { schema: MeResponseSchema });
-      } catch (error: unknown) {
-        // Treat 401 as "not authenticated" rather than an error so
-        // the AuthContext can render the unauthenticated branch
-        // instead of an error toast.
-        if (
-          error !== null &&
-          typeof error === 'object' &&
-          'status' in error &&
-          (error as { status: number }).status === 401
-        ) {
-          return null;
-        }
-        throw error;
-      }
-    },
+    queryFn: async () => apiFetch('/auth/me', { schema: MeSessionResponseSchema }),
     retry: false,
   });
 }

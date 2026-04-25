@@ -25,7 +25,9 @@
     "lint": "eslint ."
   },
   "dependencies": {
+    "@cad/expr": "workspace:*",
     "@cad/sdk": "workspace:*",
+    "@cad/sketch": "workspace:*",
     "prettier": "^3.8.2",
     "typescript": "^6.0.2"
   },

@@ -8,7 +8,7 @@
  */
 
 import { execFileSync, spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -86,7 +86,7 @@ describe('cad binary', () => {
     const documentPath = path.join(tempDir, 'document.ts');
     writeFileSync(
       documentPath,
-      `import { body, defineDocument, pad, parameters, reference } from '@cad/sdk';
+      `import { body, defineDocument, feature, pad, parameters, reference, sketch } from '@cad/sdk';
 
 export default defineDocument({
   parameters: parameters({
@@ -95,7 +95,18 @@ export default defineDocument({
     height: { kind: 'number', value: 24, unit: 'mm' },
   }),
   body: body([
-    pad({ id: 'pad_1', width: reference('width'), depth: reference('depth'), height: reference('height') }),
+    sketch({
+      id: 'sketch_1',
+      plane: 'xy',
+      svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="-20 -20 120 90" data-cad-plane="xy" data-cad-kind="rectangle">  <rect x="0" y="0" width="12" height="18" fill="none" stroke="currentColor" stroke-width="1" /></svg>',
+      constraints: {
+        kind: 'rectangle',
+        anchor: 'origin',
+        width: { kind: 'reference', name: 'width' },
+        height: { kind: 'reference', name: 'depth' },
+      },
+    }),
+    pad({ id: 'pad_1', sketch: feature('sketch_1'), length: reference('height'), direction: 'up' }),
   ]),
 });
 `,
@@ -113,6 +124,7 @@ export default defineDocument({
       expect(parsed.documentHash).toMatch(/^[a-f0-9]{64}$/u);
       expect(parsed.parameterOrder).toEqual(['width', 'depth', 'height']);
       expect(parsed.features).toEqual([
+        expect.objectContaining({ id: 'sketch_1', kind: 'sketch' }),
         expect.objectContaining({ id: 'pad_1', kind: 'pad' }),
       ]);
       expect(parsed.tessellation.metadata.hash).toMatch(/^[a-f0-9]{64}$/u);
@@ -150,5 +162,67 @@ export default fs;
     } finally {
       rmSync(tempDir, { recursive: true, force: true });
     }
+  });
+
+  it('exports a built document as STL', () => {
+    const tempDir = mkdtempSync(path.join(tmpdir(), 'cad-cli-export-'));
+    const documentPath = path.join(tempDir, 'document.ts');
+    const outputPath = path.join(tempDir, 'spacer.stl');
+    writeFileSync(
+      documentPath,
+      `import { body, defineDocument, feature, pad, parameters, reference, sketch } from '@cad/sdk';
+
+export default defineDocument({
+  parameters: parameters({
+    width: { kind: 'number', value: 12, unit: 'mm' },
+    depth: { kind: 'number', value: 18, unit: 'mm' },
+    height: { kind: 'number', value: 24, unit: 'mm' },
+  }),
+  body: body([
+    sketch({
+      id: 'sketch_1',
+      plane: 'xy',
+      svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="-20 -20 120 90" data-cad-plane="xy" data-cad-kind="rectangle">  <rect x="0" y="0" width="12" height="18" fill="none" stroke="currentColor" stroke-width="1" /></svg>',
+      constraints: {
+        kind: 'rectangle',
+        anchor: 'origin',
+        width: { kind: 'reference', name: 'width' },
+        height: { kind: 'reference', name: 'depth' },
+      },
+    }),
+    pad({ id: 'pad_1', sketch: feature('sketch_1'), length: reference('height'), direction: 'up' }),
+  ]),
+});
+`,
+      'utf8',
+    );
+
+    try {
+      const stdout = runCad(['export', documentPath, '--output', outputPath]);
+      expect(stdout.trim()).toBe(outputPath);
+      expect(existsSync(outputPath)).toBe(true);
+      const stl = readFileSync(outputPath);
+      expect(stl.byteLength).toBeGreaterThan(84);
+      expect(stl.subarray(0, 5).toString('ascii')).not.toBe('solid');
+    } finally {
+      rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it('lists handbook topics from the terminal', () => {
+    const stdout = runCad(['docs', 'list']);
+    expect(stdout).toContain('/handbook/features/pad');
+    expect(stdout).toContain('/handbook/faq/getting-help');
+  });
+
+  it('searches handbook topics from the terminal', () => {
+    const stdout = runCad(['docs', 'search', 'pad']);
+    expect(stdout).toContain('/handbook/features/pad');
+  });
+
+  it('renders a handbook topic in the terminal', () => {
+    const stdout = runCad(['docs', '/handbook/features/pad']);
+    expect(stdout).toContain('Pad');
+    expect(stdout).toContain('Dual-write behavior');
   });
 });

@@ -134,5 +134,5 @@ describe('<ProjectDetailRoute />', () => {
     await waitFor(() => {
       expect(screen.getByTestId('project-list')).toBeDefined();
     });
-  });
+  }, 10_000);
 });

@@ -1,0 +1,26 @@
+---
+title: Parameters
+summary: Declare named number and expression inputs for a document.
+tags:
+  - sdk
+  - parameters
+sdkOpId: parameters
+---
+
+# Parameters
+
+`parameters()` declares the named inputs that the runtime resolves before features execute.
+
+## Current support
+
+- numeric values with units
+- expressions with units
+
+## Example
+
+```ts
+parameters({
+  width: { kind: 'number', value: 10, unit: 'mm' },
+  height: { kind: 'expression', expression: 'width * 2', unit: 'mm' },
+});
+```

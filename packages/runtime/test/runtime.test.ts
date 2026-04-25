@@ -3,7 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { ExprError } from '@cad/expr';
-import { body, defineDocument, expression, literal, pad, parameters, reference, sketch } from '@cad/sdk';
+import { body, defineDocument, feature, literal, pad, parameters, reference, sketch } from '@cad/sdk';
 import { describe, expect, it } from 'vitest';
 
 import { buildDocument } from '../src/build.js';
@@ -16,6 +16,13 @@ import type { RuntimeOptions } from '../src/index.js';
 import type { WorkerRequest } from '../src/sandbox.js';
 
 const FIXTURE_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'tests', 'fixtures', 'slice-2');
+const DEFAULT_SKETCH_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="-20 -20 120 90" data-cad-plane="xy" data-cad-kind="rectangle">  <rect x="0" y="0" width="80" height="50" fill="none" stroke="currentColor" stroke-width="1" /></svg>';
+const DEFAULT_SKETCH_CONSTRAINTS = {
+  kind: 'rectangle' as const,
+  anchor: 'origin' as const,
+  width: { kind: 'literal' as const, value: 80, unit: 'mm' as const },
+  height: { kind: 'literal' as const, value: 50, unit: 'mm' as const },
+};
 
 async function readFixture(name: string): Promise<string> {
   return readFile(path.join(FIXTURE_DIR, name), 'utf8');
@@ -36,8 +43,11 @@ describe('@cad/runtime', () => {
     const validDocument = await readFixture('valid-pad.document.ts');
     const result = await executeDocument(validDocument);
     expect(result.parameters.width).toMatchObject({ value: 10, unit: 'mm' });
-    expect(result.tessellation.metadata.hash).toHaveLength(64);
-    expect(result.features).toHaveLength(1);
+    expect(result.tessellation?.metadata.hash).toHaveLength(64);
+    expect(result.features).toEqual([
+      expect.objectContaining({ id: 'sketch_1', kind: 'sketch' }),
+      expect.objectContaining({ id: 'pad_1', kind: 'pad' }),
+    ]);
   });
 
   it('produces the same hashes for repeated builds of the same source', async () => {
@@ -46,7 +56,7 @@ describe('@cad/runtime', () => {
     const second = await executeDocument(validDocument);
 
     expect(second.documentHash).toBe(first.documentHash);
-    expect(second.tessellation.metadata.hash).toBe(first.tessellation.metadata.hash);
+    expect(second.tessellation?.metadata.hash).toBe(first.tessellation?.metadata.hash);
     expect(second.features).toEqual(first.features);
   });
 
@@ -67,11 +77,16 @@ describe('@cad/runtime', () => {
     } satisfies Partial<RuntimeBuildError>);
   });
 
-  it('rejects documents that never produce tessellation', async () => {
+  it('supports sketch-only documents without tessellation', async () => {
     const source = await readFixture('sketch-only.document.ts');
-    await expect(executeDocument(source)).rejects.toMatchObject({
-      code: 'runtime.no_tessellation',
-    } satisfies Partial<RuntimeBuildError>);
+    const result = await executeDocument(source);
+    expect(result.tessellation).toBeNull();
+    expect(result.features[0]).toMatchObject({
+      kind: 'sketch',
+      sketch: {
+        status: 'fully_constrained',
+      },
+    });
   });
 
   it('enforces timeouts', async () => {
@@ -104,12 +119,17 @@ describe('@cad/runtime', () => {
         height: { expression: 'width / 2', unit: 'mm' },
       }),
       body: body([
-        sketch({ id: 'sketch_1', plane: 'yz' }),
+        sketch({
+          id: 'sketch_1',
+          plane: 'yz',
+          svg: DEFAULT_SKETCH_SVG,
+          constraints: DEFAULT_SKETCH_CONSTRAINTS,
+        }),
         pad({
           id: 'pad_1',
-          width: reference('width'),
-          depth: expression('width + width', 'mm'),
-          height: literal(6, 'mm'),
+          sketch: feature('sketch_1'),
+          length: literal(6, 'mm'),
+          direction: 'down',
         }),
       ]),
     });
@@ -119,24 +139,35 @@ describe('@cad/runtime', () => {
     expect(result.parameterOrder).toEqual(['width', 'height']);
     expect(result.features).toEqual([
       expect.objectContaining({ id: 'sketch_1', kind: 'sketch', cached: false }),
-      expect.objectContaining({ id: 'pad_1', kind: 'pad', cached: false }),
+      expect.objectContaining({
+        id: 'pad_1',
+        kind: 'pad',
+        cached: false,
+        pad: expect.objectContaining({ sketch: 'sketch_1', length: 6, direction: 'down' }),
+      }),
     ]);
-    expect(result.tessellation.metadata.vertexCount).toBeGreaterThan(0);
+    expect(result.tessellation?.metadata.vertexCount).toBeGreaterThan(0);
   });
 
   it('rejects missing feature parameters and non-millimetre geometry units', async () => {
     await expect(
       buildDocument(
         defineDocument({
-          parameters: parameters({}),
-          body: body([
-            pad({
-              width: reference('missing'),
-              depth: 2,
-              height: 3,
-            }),
-          ]),
-        }),
+            parameters: parameters({}),
+            body: body([
+              sketch({
+                id: 'sketch_1',
+                plane: 'xy',
+                svg: DEFAULT_SKETCH_SVG,
+                constraints: DEFAULT_SKETCH_CONSTRAINTS,
+              }),
+              pad({
+                sketch: feature('sketch_1'),
+                length: reference('missing'),
+                direction: 'up',
+              }),
+            ]),
+          }),
       ),
     ).rejects.toMatchObject({
       code: 'runtime.unknown_parameter',
@@ -148,10 +179,16 @@ describe('@cad/runtime', () => {
         defineDocument({
           parameters: parameters({ angle: { value: 90, unit: 'deg' } }),
           body: body([
+            sketch({
+              id: 'sketch_1',
+              plane: 'xy',
+              svg: DEFAULT_SKETCH_SVG,
+              constraints: DEFAULT_SKETCH_CONSTRAINTS,
+            }),
             pad({
-              width: reference('angle'),
-              depth: 2,
-              height: 3,
+              sketch: feature('sketch_1'),
+              length: reference('angle'),
+              direction: 'up',
             }),
           ]),
         }),

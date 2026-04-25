@@ -1,20 +1,19 @@
 # Slice 5 — Sketch Subsystem v1
 
-> Skeleton plan. Upgraded to Slice-0 depth when execution begins.
 > Parent: [`PLAN.md`](../../PLAN.md) — Slice 5.
 
 ## Goal
 
-Draw a 2D sketch on a plane with constraints — end to end, inside the dual-write model from Slice 4. Integrate PlaneGCS (FreeCAD's proven solver, WASM-bound), make SVG the canonical sketch format, and wire sketch-mode transitions through the authoring layer so entering/exiting a sketch is itself a codemod that shows up in Monaco.
+Ship the first real sketch subsystem: rectangle-first sketch mode on the `xy` plane, canonical `sketch({ plane, svg, constraints })` persistence, solver-backed feedback, and dual-write source updates in the Slice 4 workspace.
 
 ## Definition of Done
 
 - Enter sketch mode on the XY datum plane, draw a fully-constrained rectangle, exit cleanly
-- Solver runs on every edit; over/under-constrained primitives highlighted with colour + status message
+- Solver runs on each completed sketch action; status and diagnostics stay visible in sketch mode
 - Sketch persisted in `document.ts` as a `sketch({ plane, svg, constraints })` call; Monaco reflects it live
 - Sketch ↔ SVG round-trip is lossless (parse + print produces identical DOM)
 - Parametric dimensions bind to document parameters through `@cad/expr`
-- Playwright golden journey #4 (constraint failure UX) green
+- Playwright sketch smoke journey green
 
 ## Out of Scope
 

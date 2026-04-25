@@ -26,9 +26,12 @@
     "lint": "eslint ."
   },
   "dependencies": {
+    "@cad/handbook": "workspace:*",
     "@cad/kernel": "workspace:*",
     "@cad/runtime": "workspace:*",
-    "commander": "^14.0.3"
+    "commander": "^14.0.3",
+    "marked": "^15.0.12",
+    "marked-terminal": "^7.3.0"
   },
   "devDependencies": {
     "@cad/config": "workspace:*",

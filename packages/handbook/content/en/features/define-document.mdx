@@ -1,0 +1,25 @@
+---
+title: Define document
+summary: Wrap parameters and body in the canonical executable document module.
+tags:
+  - sdk
+  - document
+sdkOpId: defineDocument
+---
+
+# Define document
+
+`defineDocument()` is the top-level SDK call that returns the canonical document module shape.
+
+## When to use it
+
+Use it once, as the default export of `document.ts`, after declaring parameters and body features.
+
+## Example
+
+```ts
+export default defineDocument({
+  parameters: parameters({}),
+  body: body([]),
+});
+```

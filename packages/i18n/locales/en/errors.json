@@ -4,6 +4,7 @@
   "auth.session_revoked": "Your session was signed out. Please sign in again.",
   "documents.not_found": "Document not found.",
   "generic": "Something went wrong. Please try again.",
+  "handbook_pages.not_found": "Handbook page not found.",
   "network.timeout": "The request timed out. Please try again.",
   "network.unreachable": "Cannot reach the server. Check your connection.",
   "projects.not_found": "Project not found.",

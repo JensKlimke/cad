@@ -159,6 +159,11 @@ describe('BuildDocumentResponseSchema', () => {
             kind: 'pad',
             inputHash: 'b'.repeat(64),
             cached: false,
+            pad: {
+              sketch: 'sketch_1',
+              length: 30,
+              direction: 'up',
+            },
           },
         ],
         tessellation: {

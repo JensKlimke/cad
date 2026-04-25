@@ -36,6 +36,8 @@ const EnvSchema = z.object({
 
   // ─── Logging ────────────────────────────────────────────────────
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
+  RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(100),
+  RATE_LIMIT_TIME_WINDOW_SECONDS: z.coerce.number().int().min(1).default(60),
 
   // ─── Database ───────────────────────────────────────────────────
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),

@@ -1,7 +1,8 @@
 import { createHash } from 'node:crypto';
 
 import { evaluateExpression, evaluateParameters } from '@cad/expr';
-import { createBox } from '@cad/kernel';
+import { createPadFromRectangleSketch } from '@cad/kernel';
+import { parseSketchSvg, solveRectangleSketch } from '@cad/sketch';
 
 import { runtimeError } from './errors.js';
 
@@ -11,33 +12,101 @@ import type { DocumentDefinition, ScalarInput } from '@cad/sdk';
 export async function buildDocument(document: DocumentDefinition): Promise<RuntimeBuildResult> {
   const evaluated = evaluateParameters(document.parameters.entries);
   const featureCache = new Map<string, RuntimeFeatureResult>();
-  let tessellation: JsonTessellation | undefined;
+  const solvedSketches = new Map<string, RuntimeFeatureResult & { readonly kind: 'sketch' }>();
+  let tessellation: JsonTessellation | null = null;
   const features: RuntimeFeatureResult[] = [];
 
   for (const feature of document.body.features) {
     if (feature.kind === 'sketch') {
-      const inputHash = hashJson({ id: feature.id ?? 'sketch', kind: feature.kind, plane: feature.plane ?? 'xy' });
-      const result = { id: feature.id ?? 'sketch', kind: feature.kind, inputHash, cached: false } satisfies RuntimeFeatureResult;
+      const solved = await solveRectangleSketch(
+        {
+          plane: feature.plane,
+          geometry: parseSketchSvg(feature.svg),
+          constraints: feature.constraints,
+        },
+        {
+          parameters: evaluated.values,
+        },
+      );
+      const inputHash = hashJson({
+        id: feature.id ?? 'sketch',
+        kind: feature.kind,
+        plane: feature.plane,
+        svg: solved.svg,
+        constraints: feature.constraints,
+      });
+      const result = {
+        id: feature.id ?? 'sketch',
+        kind: 'sketch',
+        inputHash,
+        cached: featureCache.has(inputHash),
+        sketch: solved,
+      } satisfies RuntimeFeatureResult;
       featureCache.set(inputHash, result);
+      solvedSketches.set(result.id, result);
       features.push(result);
       continue;
     }
+
+    const sketchId = feature.sketch.id;
+    const sketch = solvedSketches.get(sketchId);
+    if (sketch === undefined) {
+      throw runtimeError(
+        'runtime.missing_feature_reference',
+        `Pad feature "${feature.id ?? 'pad'}" references missing sketch "${sketchId}".`,
+        [
+          {
+            code: 'runtime.missing_feature_reference',
+            message: `Pad feature "${feature.id ?? 'pad'}" references missing sketch "${sketchId}".`,
+            context: { feature: feature.id ?? 'pad', reference: sketchId },
+          },
+        ],
+      );
+    }
+    if (sketch.sketch.status === 'over_constrained') {
+      throw runtimeError(
+        'runtime.invalid_sketch',
+        `Sketch "${sketchId}" is over-constrained and cannot be padded.`,
+        sketch.sketch.diagnostics.map((message) => ({
+          code: 'runtime.invalid_sketch',
+          message,
+          context: { sketch: sketchId },
+        })),
+      );
+    }
     const resolvedInput = {
-      width: resolveScalar(feature.width, evaluated.values),
-      depth: resolveScalar(feature.depth, evaluated.values),
-      height: resolveScalar(feature.height, evaluated.values),
+      sketch: sketchId,
+      plane: sketch.sketch.plane,
+      x: sketch.sketch.geometry.x,
+      y: sketch.sketch.geometry.y,
+      width: sketch.sketch.geometry.width,
+      height: sketch.sketch.geometry.height,
+      length: resolveScalar(feature.length, evaluated.values),
+      direction: feature.direction,
     };
     const inputHash = hashJson({ id: feature.id ?? 'pad', kind: feature.kind, input: resolvedInput });
-    const cached = featureCache.has(inputHash);
     const featureResult = {
       id: feature.id ?? 'pad',
-      kind: feature.kind,
+      kind: 'pad',
       inputHash,
-      cached,
+      cached: featureCache.has(inputHash),
+      pad: {
+        sketch: sketchId,
+        length: resolvedInput.length,
+        direction: feature.direction,
+      },
     } satisfies RuntimeFeatureResult;
     features.push(featureResult);
     featureCache.set(inputHash, featureResult);
-    const shape = await createBox(resolvedInput);
+    const shape = await createPadFromRectangleSketch({
+      plane: resolvedInput.plane,
+      x: resolvedInput.x,
+      y: resolvedInput.y,
+      width: resolvedInput.width,
+      height: resolvedInput.height,
+      length: resolvedInput.length,
+      direction: resolvedInput.direction,
+    });
     tessellation = {
       positions: [...shape.positions],
       normals: [...shape.normals],
@@ -46,20 +115,11 @@ export async function buildDocument(document: DocumentDefinition): Promise<Runti
     };
   }
 
-  if (tessellation === undefined) {
-    throw runtimeError('runtime.no_tessellation', 'buildDocument: document produced no tessellation.', [
-      {
-        code: 'runtime.no_tessellation',
-        message: 'buildDocument: document produced no tessellation.',
-      },
-    ]);
-  }
-
   return {
     documentHash: hashJson({
       parameters: evaluated.order.map((name) => [name, evaluated.values[name]]),
       features,
-      tessellationHash: tessellation.metadata.hash,
+      tessellationHash: tessellation?.metadata.hash ?? null,
     }),
     parameters: evaluated.values,
     parameterOrder: evaluated.order,

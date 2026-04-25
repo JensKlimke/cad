@@ -4,9 +4,28 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import { applyAuthoringOp, parseDocument, printDocument } from '../src/index.js';
+import { applyAuthoringOp, findNodeSelectionAtOffset, parseDocument, printDocument } from '../src/index.js';
 
 const FIXTURE_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'tests', 'fixtures', 'slice-2');
+const DEFAULT_SKETCH = {
+  kind: 'sketch' as const,
+  id: 'sketch_1',
+  plane: 'xy' as const,
+  svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="-20 -20 120 90" data-cad-plane="xy" data-cad-kind="rectangle">  <rect x="0" y="0" width="80" height="50" fill="none" stroke="currentColor" stroke-width="1" /></svg>',
+  geometry: {
+    kind: 'rectangle' as const,
+    x: 0,
+    y: 0,
+    width: 80,
+    height: 50,
+  },
+  constraints: {
+    kind: 'rectangle' as const,
+    anchor: 'origin' as const,
+    width: { kind: 'literal' as const, value: 80, unit: 'mm' as const },
+    height: { kind: 'literal' as const, value: 50, unit: 'mm' as const },
+  },
+};
 
 async function readFixture(name: string): Promise<string> {
   return readFile(path.join(FIXTURE_DIR, name), 'utf8');
@@ -28,13 +47,13 @@ describe('@cad/authoring', () => {
     const ast = parseDocument(await readFixture('valid-pad.document.ts'));
     const next = applyAuthoringOp(ast, {
       kind: 'parameter.rename',
-      name: 'width',
+      id: ast.parameters[0]!.id,
       newName: 'plateWidth',
     });
 
     const printed = await printDocument(next);
     expect(printed).toContain('plateWidth');
-    expect(printed).toContain("reference('plateWidth')");
+    expect(printed).toContain("width: { kind: 'reference', name: 'plateWidth' }");
   });
 
   it('applies feature insertion and reordering codemods while staying printable', async () => {
@@ -45,9 +64,9 @@ describe('@cad/authoring', () => {
       feature: {
         kind: 'pad',
         id: 'pad_1',
-        width: { kind: 'literal', value: 4, unit: 'mm' },
-        depth: { kind: 'literal', value: 5, unit: 'mm' },
-        height: { kind: 'literal', value: 6, unit: 'mm' },
+        sketch: 'sketch_1',
+        length: { kind: 'literal', value: 6, unit: 'mm' },
+        direction: 'up',
       },
     });
     const reordered = applyAuthoringOp(withFeature, {
@@ -62,21 +81,28 @@ describe('@cad/authoring', () => {
     expect(reparsed.features).toHaveLength(3);
   });
 
-  it('covers the remaining parameter and feature codemods', async () => {
+  it('covers parameter and feature CRUD codemods with canonical definitions', async () => {
     const ast = parseDocument(await readFixture('valid-pad.document.ts'));
     const withAddedParameter = applyAuthoringOp(ast, {
       kind: 'parameter.add',
-      name: 'depth',
-      definition: { value: 20, unit: 'mm' },
+      parameter: {
+        name: 'thickness',
+        definition: { value: 20, unit: 'mm' },
+      },
     });
+    const addedParameter = withAddedParameter.parameters.at(-1)!;
     const withUpdatedParameter = applyAuthoringOp(withAddedParameter, {
       kind: 'parameter.update',
-      name: 'depth',
-      definition: { expression: 'width * 2', unit: 'mm' },
+      id: addedParameter.id,
+      parameter: {
+        id: addedParameter.id,
+        name: 'thickness',
+        definition: { expression: 'width * 2', unit: 'mm' },
+      },
     });
     const withRemovedParameter = applyAuthoringOp(withUpdatedParameter, {
       kind: 'parameter.remove',
-      name: 'depth',
+      id: addedParameter.id,
     });
     const withUpdatedFeature = applyAuthoringOp(withRemovedParameter, {
       kind: 'feature.update',
@@ -84,9 +110,9 @@ describe('@cad/authoring', () => {
       feature: {
         kind: 'pad',
         id: 'pad_1',
-        width: { kind: 'literal', value: 12, unit: 'mm' },
-        depth: { kind: 'reference', name: 'width' },
-        height: { kind: 'expression', source: 'width / 2', unit: 'mm' },
+        sketch: 'sketch_1',
+        length: { kind: 'expression', source: 'width / 2', unit: 'mm' },
+        direction: 'symmetric',
       },
     });
     const withRemovedFeature = applyAuthoringOp(withUpdatedFeature, {
@@ -95,18 +121,22 @@ describe('@cad/authoring', () => {
     });
 
     expect(withAddedParameter.parameters).toHaveLength(4);
-    expect(withUpdatedParameter.parameters[3]).toMatchObject({
-      name: 'depth',
-      definition: { expression: 'width * 2', unit: 'mm' },
+    expect(withUpdatedParameter.parameters.at(-1)).toMatchObject({
+      name: 'thickness',
+      definition: { kind: 'expression', expression: 'width * 2', unit: 'mm' },
     });
-    expect(withRemovedParameter.parameters).toHaveLength(2);
-    expect(withUpdatedFeature.features[0]).toMatchObject({
+    const printedParameterUpdate = await printDocument(withUpdatedParameter);
+    expect(printedParameterUpdate).toContain(
+      "thickness: { kind: 'expression', expression: 'width * 2', unit: 'mm' }",
+    );
+    expect(withRemovedParameter.parameters).toHaveLength(3);
+    expect(withUpdatedFeature.features[1]).toMatchObject({
       kind: 'pad',
-      width: { kind: 'literal', value: 12, unit: 'mm' },
-      depth: { kind: 'reference', name: 'width' },
-      height: { kind: 'expression', source: 'width / 2', unit: 'mm' },
+      sketch: 'sketch_1',
+      length: { kind: 'expression', source: 'width / 2', unit: 'mm' },
+      direction: 'symmetric',
     });
-    expect(withRemovedFeature.features).toHaveLength(0);
+    expect(withRemovedFeature.features).toHaveLength(1);
   });
 
   it('keeps no-op codemods stable and clamps feature insertion indexes', async () => {
@@ -114,12 +144,12 @@ describe('@cad/authoring', () => {
     const appended = applyAuthoringOp(ast, {
       kind: 'feature.add',
       index: 99,
-      feature: { kind: 'sketch', id: 'sketch_3' },
+      feature: { ...DEFAULT_SKETCH, id: 'sketch_3' },
     });
     const prepended = applyAuthoringOp(ast, {
       kind: 'feature.add',
       index: -5,
-      feature: { kind: 'sketch', id: 'sketch_0' },
+      feature: { ...DEFAULT_SKETCH, id: 'sketch_0' },
     });
     const reorderMissing = applyAuthoringOp(ast, {
       kind: 'feature.reorder',
@@ -128,7 +158,7 @@ describe('@cad/authoring', () => {
     });
     const renameSketchParameter = applyAuthoringOp(ast, {
       kind: 'parameter.rename',
-      name: 'width',
+      id: ast.parameters[0]!.id,
       newName: 'renamedWidth',
     });
 
@@ -136,6 +166,20 @@ describe('@cad/authoring', () => {
     expect(prepended.features[0]).toMatchObject({ id: 'sketch_0', kind: 'sketch' });
     expect(reorderMissing).toEqual(ast);
     expect(renameSketchParameter.features[0]).toMatchObject({ id: 'sketch_1', kind: 'sketch' });
+  });
+
+  it('finds parameter and feature selections from source offsets', async () => {
+    const source = await readFixture('valid-pad.document.ts');
+    const ast = parseDocument(source);
+
+    expect(findNodeSelectionAtOffset(ast, source.indexOf("width: { kind: 'number', value"))).toEqual({
+      kind: 'parameter',
+      id: ast.parameters[0]!.id,
+    });
+    expect(findNodeSelectionAtOffset(ast, source.indexOf("pad({ id: 'pad_1'"))).toEqual({
+      kind: 'feature',
+      id: 'pad_1',
+    });
   });
 
   it('rejects unsupported top-level shapes during parse', async () => {
@@ -147,7 +191,7 @@ describe('@cad/authoring', () => {
   it('rejects invalid document and parameter shapes during parse', () => {
     expect(() => parseDocument('export default {};\n')).toThrow(/expected `export default defineDocument/u);
     expect(() =>
-      parseDocument("export default defineDocument([]);\n"),
+      parseDocument('export default defineDocument([]);\n'),
     ).toThrow(/defineDocument expects an object literal/u);
     expect(() =>
       parseDocument(`
@@ -175,6 +219,16 @@ describe('@cad/authoring', () => {
         });
       `),
     ).toThrow(/cannot include both `value` and `expression`/u);
+    expect(() =>
+      parseDocument(`
+        export default defineDocument({
+          parameters: parameters({
+            width: { kind: true, value: 1, unit: 'mm' },
+          }),
+          body: body([]),
+        });
+      `),
+    ).toThrow(/`kind` must be a string literal/u);
     expect(() =>
       parseDocument(`
         export default defineDocument({
@@ -234,10 +288,10 @@ describe('@cad/authoring', () => {
       parseDocument(`
         export default defineDocument({
           parameters: parameters({}),
-          body: body([pad({ width: 1, depth: 2 })]),
+          body: body([pad({ length: 2 })]),
         });
       `),
-    ).toThrow(/missing required property "height"/u);
+    ).toThrow(/missing required property "sketch"/u);
   });
 
   it('parses supported scalar input forms and rejects unsupported ones', () => {
@@ -245,37 +299,45 @@ describe('@cad/authoring', () => {
       export default defineDocument({
         parameters: parameters({}),
         body: body([
-          sketch({}),
+          sketch({
+            svg: '${DEFAULT_SKETCH.svg}',
+            constraints: {
+              kind: 'rectangle',
+              anchor: 'origin',
+              width: { kind: 'literal', value: 80, unit: 'mm' },
+              height: { kind: 'literal', value: 50, unit: 'mm' },
+            },
+          }),
           pad({
-            width: -2,
-            depth: "width",
-            height: expression("width / 2", "mm"),
+            sketch: feature("sketch_1"),
+            length: expression("width / 2", "mm"),
+            direction: "up",
           }),
           pad({
             id: "pad_3",
-            width: literal(3, "mm"),
-            depth: reference("width"),
-            height: 4,
+            sketch: { kind: "feature", id: "sketch_1" },
+            length: 4,
+            direction: "down",
           }),
         ]),
       });
     `);
 
-    expect(parsed.features).toEqual([
-      { kind: 'sketch', id: 'sketch_1' },
+    expect(parsed.features).toMatchObject([
+      { kind: 'sketch', id: 'sketch_1', plane: 'xy' },
       {
         kind: 'pad',
         id: 'pad_2',
-        width: { kind: 'literal', value: -2, unit: 'mm' },
-        depth: { kind: 'reference', name: 'width' },
-        height: { kind: 'expression', source: 'width / 2', unit: 'mm' },
+        sketch: 'sketch_1',
+        length: { kind: 'expression', source: 'width / 2', unit: 'mm' },
+        direction: 'up',
       },
       {
         kind: 'pad',
         id: 'pad_3',
-        width: { kind: 'literal', value: 3, unit: 'mm' },
-        depth: { kind: 'reference', name: 'width' },
-        height: { kind: 'literal', value: 4, unit: 'mm' },
+        sketch: 'sketch_1',
+        length: { kind: 'literal', value: 4, unit: 'mm' },
+        direction: 'down',
       },
     ]);
 
@@ -285,9 +347,9 @@ describe('@cad/authoring', () => {
           parameters: parameters({}),
           body: body([
             pad({
-              width: true,
-              depth: 2,
-              height: 3,
+              sketch: feature('sketch_1'),
+              length: { unit: 'mm' },
+              direction: 'up',
             }),
           ]),
         });
@@ -295,12 +357,14 @@ describe('@cad/authoring', () => {
     ).toThrow(/unsupported scalar input/u);
   });
 
-  it('prints sketch features without a plane', async () => {
+  it('prints persisted sketch features', async () => {
     const printed = await printDocument({
       parameters: [],
-      features: [{ kind: 'sketch', id: 'sketch_1' }],
+      features: [DEFAULT_SKETCH],
     });
 
-    expect(printed).toContain("sketch({ id: 'sketch_1' })");
+    expect(printed).toContain("sketch({");
+    expect(printed).toContain("plane: 'xy'");
+    expect(printed).toContain('constraints:');
   });
 });

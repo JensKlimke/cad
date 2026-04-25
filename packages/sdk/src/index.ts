@@ -1,4 +1,6 @@
 import type { ParameterDefinition, Unit } from '@cad/expr';
+import type { RectangleSketchConstraints, SketchPlane } from '@cad/sketch';
+export { docMetadata, ops, type SdkOpDocMetadata, type SdkOpId } from './ops.js';
 
 export interface ParameterCollection {
   readonly kind: 'parameters';
@@ -24,18 +26,27 @@ export interface ScalarReference {
 
 export type ScalarInput = ScalarLiteral | ScalarExpression | ScalarReference;
 
+export interface FeatureReference {
+  readonly kind: 'feature';
+  readonly id: string;
+}
+
+export type PadDirection = 'up' | 'down' | 'symmetric';
+
 export interface PadFeature {
   readonly kind: 'pad';
   readonly id?: string;
-  readonly width: ScalarInput;
-  readonly depth: ScalarInput;
-  readonly height: ScalarInput;
+  readonly sketch: FeatureReference;
+  readonly length: ScalarInput;
+  readonly direction: PadDirection;
 }
 
 export interface SketchFeature {
   readonly kind: 'sketch';
   readonly id?: string;
-  readonly plane?: 'xy' | 'yz' | 'xz';
+  readonly plane: SketchPlane;
+  readonly svg: string;
+  readonly constraints: RectangleSketchConstraints;
 }
 
 export type Feature = PadFeature | SketchFeature;
@@ -50,40 +61,6 @@ export interface DocumentDefinition {
   readonly parameters: ParameterCollection;
   readonly body: BodyDefinition;
 }
-
-export interface DocMetadata {
-  readonly id: string;
-  readonly title: string;
-  readonly description: string;
-}
-
-export const docMetadata = {
-  defineDocument: {
-    id: 'defineDocument',
-    title: 'Define document',
-    description: 'Create the canonical executable TypeScript document definition.',
-  },
-  parameters: {
-    id: 'parameters',
-    title: 'Parameters',
-    description: 'Declare typed document parameters and expressions.',
-  },
-  body: {
-    id: 'body',
-    title: 'Body',
-    description: 'Declare an ordered feature body for evaluation.',
-  },
-  pad: {
-    id: 'pad',
-    title: 'Pad',
-    description: 'Create a box-like solid from width, depth, and height inputs.',
-  },
-  sketch: {
-    id: 'sketch',
-    title: 'Sketch',
-    description: 'Declare a sketch feature placeholder for later slices.',
-  },
-} as const satisfies Readonly<Record<string, DocMetadata>>;
 
 export function parameters(entries: Readonly<Record<string, ParameterDefinition>>): ParameterCollection {
   return {
@@ -101,24 +78,31 @@ export function body(features: readonly Feature[]): BodyDefinition {
 
 export function pad(input: {
   readonly id?: string;
-  readonly width: ScalarInput | number | string;
-  readonly depth: ScalarInput | number | string;
-  readonly height: ScalarInput | number | string;
+  readonly sketch: FeatureReference | string;
+  readonly length: ScalarInput | number | string;
+  readonly direction?: PadDirection;
 }): PadFeature {
   return {
     kind: 'pad',
     ...(input.id === undefined ? {} : { id: input.id }),
-    width: normalizeScalarInput(input.width),
-    depth: normalizeScalarInput(input.depth),
-    height: normalizeScalarInput(input.height),
+    sketch: normalizeFeatureReference(input.sketch),
+    length: normalizeScalarInput(input.length),
+    direction: input.direction ?? 'up',
   };
 }
 
-export function sketch(input: { readonly id?: string; readonly plane?: 'xy' | 'yz' | 'xz' } = {}): SketchFeature {
+export function sketch(input: {
+  readonly id?: string;
+  readonly plane?: SketchPlane;
+  readonly svg: string;
+  readonly constraints: RectangleSketchConstraints;
+}): SketchFeature {
   return {
     kind: 'sketch',
     ...(input.id === undefined ? {} : { id: input.id }),
-    ...(input.plane === undefined ? {} : { plane: input.plane }),
+    plane: input.plane ?? 'xy',
+    svg: input.svg,
+    constraints: input.constraints,
   };
 }
 
@@ -145,6 +129,10 @@ export function reference(name: string): ScalarReference {
   return { kind: 'reference', name };
 }
 
+export function feature(id: string): FeatureReference {
+  return { kind: 'feature', id };
+}
+
 function normalizeScalarInput(input: ScalarInput | number | string): ScalarInput {
   if (typeof input === 'number') {
     return literal(input, 'mm');
@@ -155,4 +143,12 @@ function normalizeScalarInput(input: ScalarInput | number | string): ScalarInput
   return input;
 }
 
+function normalizeFeatureReference(input: FeatureReference | string): FeatureReference {
+  if (typeof input === 'string') {
+    return feature(input);
+  }
+  return input;
+}
+
 export type { ParameterDefinition, Unit } from '@cad/expr';
+export type { RectangleSketchConstraints, SketchConstraintValue, SketchPlane } from '@cad/sketch';

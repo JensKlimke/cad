@@ -33,6 +33,14 @@ describe('createProgram', () => {
     expect(jsonOption).toBeDefined();
   });
 
+  it('registers a `docs` command for handbook list/search/topic access', () => {
+    const program = createProgram();
+    const docsCommand = program.commands.find((cmd) => cmd.name() === 'docs');
+    expect(docsCommand).toBeDefined();
+    expect(docsCommand?.description()).toContain('handbook');
+    expect(docsCommand?.registeredArguments.length).toBe(1);
+  });
+
   it('prints a human-readable table when parsed with no arguments', async () => {
     const program = createProgram();
     const writes: string[] = [];

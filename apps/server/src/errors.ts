@@ -176,7 +176,7 @@ export function invalidCredentials(): ApiError {
 }
 
 /** Convenience factory: 404 not found. */
-export function notFound(resource: 'project' | 'document', message?: string): ApiError {
+export function notFound(resource: 'project' | 'document' | 'handbook_page', message?: string): ApiError {
   return new ApiError({
     code: `${resource}s.not_found`,
     message: message ?? `The requested ${resource} was not found.`,

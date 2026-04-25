@@ -11,10 +11,14 @@
  * exit handling; the binary launcher in `bin/cad.js` just imports this file.
  */
 
-import { readFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
+import { createRequire } from 'node:module';
+import path from 'node:path';
 
-import { executeDocument, RuntimeBuildError } from '@cad/runtime';
+import { getPage, listTopics, search as searchHandbook } from '@cad/handbook';
+import { executeDocument, exportBuildResultAsStl, RuntimeBuildError } from '@cad/runtime';
 import { Command } from 'commander';
+import { Marked, type MarkedExtension } from 'marked';
 
 import { formatHuman, formatJson, getVersionInfo } from './commands/version.js';
 import { CLI_VERSION } from './version.js';
@@ -26,6 +30,25 @@ interface VersionCommandOptions {
 interface BuildCommandOptions {
   readonly timeoutMs?: string;
   readonly memoryMb?: string;
+}
+
+interface ExportCommandOptions extends BuildCommandOptions {
+  readonly format?: string;
+  readonly output?: string;
+}
+
+const markdownRenderer = new Marked(
+  loadMarkedTerminal()({
+    width: 100,
+    reflowText: true,
+  }),
+);
+
+function loadMarkedTerminal(): (options: { readonly width?: number; readonly reflowText?: boolean }) => MarkedExtension {
+  const require = createRequire(import.meta.url);
+  return require('marked-terminal').markedTerminal as (
+    options: { readonly width?: number; readonly reflowText?: boolean },
+  ) => MarkedExtension;
 }
 
 function printVersion(options: VersionCommandOptions): void {
@@ -87,6 +110,85 @@ export function createProgram(): Command {
         }
         throw error;
       }
+    });
+
+  program
+    .command('export')
+    .description('Build a document.ts file and write a temporary STL export')
+    .argument('<path>', 'Path to the document.ts source file')
+    .option('--format <format>', 'Export format', 'stl')
+    .option('--output <path>', 'Output path for the exported file')
+    .option('--timeout-ms <number>', 'Runtime timeout in milliseconds', '5000')
+    .option('--memory-mb <number>', 'Worker memory cap in megabytes', '128')
+    .action(async (sourcePath: string, options: ExportCommandOptions) => {
+      if ((options.format ?? 'stl') !== 'stl') {
+        process.stderr.write(`cad: unsupported export format: ${options.format ?? 'unknown'}\n`);
+        process.exitCode = 1;
+        return;
+      }
+      try {
+        const source = await readFile(sourcePath, 'utf8');
+        const result = await executeDocument(source, {
+          timeoutMs: Number(options.timeoutMs ?? '5000'),
+          memoryMb: Number(options.memoryMb ?? '128'),
+        });
+        const stl = exportBuildResultAsStl(result);
+        const outputPath = options.output ?? path.join(path.dirname(sourcePath), `${path.basename(sourcePath, path.extname(sourcePath))}.stl`);
+        await writeFile(outputPath, stl);
+        process.stdout.write(`${outputPath}\n`);
+      } catch (error) {
+        if (error instanceof RuntimeBuildError) {
+          process.stderr.write(`cad: ${formatBuildFailure(error)}\n`);
+          process.exitCode = 1;
+          return;
+        }
+        throw error;
+      }
+    });
+
+  const docsCommand = program.command('docs').description('Read handbook entries from the terminal');
+
+  docsCommand
+    .argument('[args...]', 'Use `list`, `search <query>`, or a handbook path such as /handbook/features/pad')
+    .action(async (args: readonly string[]) => {
+      if (args.length === 0 || (args.length === 1 && args[0] === 'list')) {
+        const pages = await listTopics({ locale: 'en' });
+        process.stdout.write(`${pages.map((page) => `${page.path} — ${page.title}`).join('\n')}\n`);
+        return;
+      }
+
+      if (args[0] === 'search') {
+        const query = args.slice(1).join(' ').trim();
+        if (query.length === 0) {
+          process.stderr.write('cad: docs search requires a query\n');
+          process.exitCode = 1;
+          return;
+        }
+        const pages = await searchHandbook(query, { locale: 'en' });
+        process.stdout.write(`${pages.map((page) => `${page.path} — ${page.summary}`).join('\n')}\n`);
+        return;
+      }
+
+      if (args.length !== 1) {
+        process.stderr.write('cad: docs expects `list`, `search <query>`, or a single handbook path\n');
+        process.exitCode = 1;
+        return;
+      }
+
+      const topic = args[0];
+      if (topic === undefined) {
+        process.stderr.write('cad: docs expects a handbook path\n');
+        process.exitCode = 1;
+        return;
+      }
+      const page = await getPage(topic, { locale: 'en' });
+      if (page === null) {
+        process.stderr.write(`cad: handbook topic not found: ${topic}\n`);
+        process.exitCode = 1;
+        return;
+      }
+      const rendered = await markdownRenderer.parse(`# ${page.title}\n\n${page.body}`);
+      process.stdout.write(`${rendered}\n`);
     });
 
   // Default action (bare `cad` invocation) prints human-readable version info.

@@ -30,6 +30,8 @@ describe('parseEnv — happy path', () => {
     expect(env.PORT).toBe(8080);
     expect(env.HOST).toBe('0.0.0.0');
     expect(env.LOG_LEVEL).toBe('info');
+    expect(env.RATE_LIMIT_MAX).toBe(100);
+    expect(env.RATE_LIMIT_TIME_WINDOW_SECONDS).toBe(60);
     expect(env.MINIO_BUCKET).toBe('cad-artifacts');
     expect(env.JWT_EXPIRES_SECONDS).toBe(3600);
     expect(env.OIDC_ENABLED).toBe(false);
@@ -39,6 +41,12 @@ describe('parseEnv — happy path', () => {
   it('coerces PORT from a string', () => {
     const env = parseEnv({ ...baseValid, PORT: '9090' });
     expect(env.PORT).toBe(9090);
+  });
+
+  it('coerces rate limit settings from strings', () => {
+    const env = parseEnv({ ...baseValid, RATE_LIMIT_MAX: '1000', RATE_LIMIT_TIME_WINDOW_SECONDS: '300' });
+    expect(env.RATE_LIMIT_MAX).toBe(1000);
+    expect(env.RATE_LIMIT_TIME_WINDOW_SECONDS).toBe(300);
   });
 
   it('parses CORS_ORIGINS as a comma-separated list', () => {

@@ -1,0 +1,19 @@
+---
+title: Document model
+summary: Understand how a CAD document is represented as executable TypeScript.
+tags:
+  - concepts
+  - document
+---
+
+# Document model
+
+The canonical document is `document.ts`: a TypeScript module that calls `@cad/sdk`.
+
+## Current shape
+
+1. parameters
+2. body
+3. ordered features
+
+The runtime executes the printed source, not a separate UI model.

@@ -1,32 +1,9 @@
-import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
-import { javascript } from '@codemirror/lang-javascript';
-import {
-  HighlightStyle,
-  bracketMatching,
-  defaultHighlightStyle,
-  foldGutter,
-  indentOnInput,
-  syntaxHighlighting,
-} from '@codemirror/language';
-import { linter, lintGutter, setDiagnostics } from '@codemirror/lint';
-import { EditorSelection, EditorState, RangeSetBuilder, StateEffect, StateField } from '@codemirror/state';
-import {
-  Decoration,
-  drawSelection,
-  dropCursor,
-  EditorView,
-  highlightActiveLine,
-  highlightActiveLineGutter,
-  highlightSpecialChars,
-  keymap,
-  lineNumbers,
-  rectangularSelection,
-} from '@codemirror/view';
-import { tags } from '@lezer/highlight';
+import * as monaco from 'monaco-editor';
+import editorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker';
+import tsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker';
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef } from 'react';
 
 import type { RuntimeDiagnostic } from '@cad/protocol';
-import type { Diagnostic } from '@codemirror/lint';
 
 export interface DocumentSourceEditorHandle {
   focusRange(start: number, end: number): void;
@@ -38,238 +15,207 @@ interface DocumentSourceEditorProps {
   readonly onChange: (value: string) => void;
   readonly diagnostics: readonly RuntimeDiagnostic[];
   readonly activeDiagnosticIndex: number | null;
+  readonly onSelectionChange?: (selection: { readonly start: number; readonly end: number }) => void;
 }
 
-const setActiveRangeEffect = StateEffect.define<{ readonly from: number; readonly to: number } | null>();
+declare global {
+  interface Window {
+    MonacoEnvironment?: {
+      getWorker(_: string, label: string): Worker;
+    };
+  }
+}
 
-const activeDiagnosticField = StateField.define({
-  create: () => Decoration.none,
-  update(decorations, transaction) {
-    // DecorationSet.map expects a ChangeDesc, not a callback function.
-    // eslint-disable-next-line unicorn/no-array-callback-reference
-    let nextDecorations = decorations.map(transaction.changes);
-    for (const effect of transaction.effects) {
-      if (effect.is(setActiveRangeEffect)) {
-        if (effect.value === null) {
-          nextDecorations = Decoration.none;
-          continue;
-        }
-        const builder = new RangeSetBuilder<Decoration>();
-        builder.add(
-          effect.value.from,
-          effect.value.to,
-          Decoration.mark({ class: 'cm-diagnostic-range-active' }),
-        );
-        nextDecorations = builder.finish();
-      }
-    }
-    return nextDecorations;
-  },
-  provide: (field) => EditorView.decorations.from(field),
-});
-
-const editorTheme = EditorView.theme({
-  '&': {
-    minHeight: '29rem',
-    backgroundColor: 'transparent',
-    color: 'var(--app-text)',
-    fontFamily: "'IBM Plex Mono', 'SFMono-Regular', monospace",
-    fontSize: '0.92rem',
-  },
-  '.cm-scroller': {
-    minHeight: '29rem',
-    overflow: 'auto',
-    lineHeight: '1.65',
-    fontFamily: 'inherit',
-  },
-  '.cm-content': {
-    padding: '0.9rem 0',
-    caretColor: 'var(--app-text)',
-  },
-  '.cm-line': {
-    padding: '0 1rem 0 0.85rem',
-  },
-  '.cm-gutters': {
-    borderRight: '1px solid rgba(160, 196, 255, 0.08)',
-    backgroundColor: 'rgba(8, 18, 31, 0.82)',
-    color: 'rgba(201, 214, 231, 0.48)',
-  },
-  '.cm-activeLineGutter': {
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-    color: 'rgba(241, 245, 249, 0.82)',
-  },
-  '.cm-activeLine': {
-    backgroundColor: 'rgba(22, 37, 62, 0.52)',
-  },
-  '.cm-selectionBackground, &.cm-focused .cm-selectionBackground, ::selection': {
-    backgroundColor: 'rgba(96, 165, 250, 0.28)',
-  },
-  '&.cm-focused': {
-    outline: 'none',
-  },
-  '&.cm-focused .cm-cursor': {
-    borderLeftColor: '#f8fafc',
-  },
-  '.cm-lintRange, .cm-lintRange-error': {
-    backgroundColor: 'rgba(248, 113, 113, 0.16)',
-    textDecoration: 'underline 1px rgba(248, 113, 113, 0.6)',
-  },
-  '.cm-diagnostic-range-active': {
-    backgroundColor: 'rgba(254, 202, 202, 0.2)',
-    outline: '1px solid rgba(254, 202, 202, 0.56)',
-    borderRadius: '0.2rem',
-  },
-  '.cm-tooltip.cm-tooltip-lint': {
-    border: '1px solid rgba(248, 113, 113, 0.32)',
-    backgroundColor: 'rgba(32, 10, 10, 0.96)',
-    color: 'var(--app-text)',
-  },
-  '.cm-foldPlaceholder': {
-    border: '1px solid rgba(160, 196, 255, 0.16)',
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-    color: 'var(--app-text-muted)',
-  },
-});
-
-const editorHighlightStyle = HighlightStyle.define([
-  { tag: tags.keyword, color: '#7dd3fc' },
-  { tag: [tags.name, tags.deleted, tags.character, tags.macroName], color: '#f8fafc' },
-  { tag: [tags.propertyName, tags.function(tags.variableName)], color: '#fde68a' },
-  { tag: [tags.number, tags.bool, tags.null], color: '#fca5a5' },
-  { tag: [tags.string, tags.special(tags.string)], color: '#86efac' },
-  { tag: [tags.comment], color: '#7a8ca6', fontStyle: 'italic' },
-  { tag: [tags.operator, tags.punctuation, tags.separator], color: '#cbd5e1' },
-  { tag: [tags.definition(tags.variableName), tags.labelName], color: '#c4b5fd' },
-  { tag: [tags.typeName, tags.className], color: '#f9a8d4' },
-]);
+let monacoConfigured = false;
 
 export const DocumentSourceEditor = forwardRef<DocumentSourceEditorHandle, DocumentSourceEditorProps>(
-  function DocumentSourceEditor({ value, onChange, diagnostics, activeDiagnosticIndex }, ref) {
+  function DocumentSourceEditor({ value, onChange, diagnostics, activeDiagnosticIndex, onSelectionChange }, ref) {
     const hostReference = useRef<HTMLDivElement | null>(null);
-    const viewReference = useRef<EditorView | null>(null);
+    const editorReference = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
+    const modelReference = useRef<monaco.editor.ITextModel | null>(null);
+    const decorationCollectionReference = useRef<monaco.editor.IEditorDecorationsCollection | null>(null);
     const changeHandlerReference = useRef(onChange);
-    const isSynchronizingReference = useRef(false);
+    const selectionHandlerReference = useRef(onSelectionChange);
+    const isApplyingExternalChangeReference = useRef(false);
+    const suppressSelectionEventsReference = useRef(false);
 
-    const lintDiagnostics = useMemo(() => diagnostics, [diagnostics]);
+    const normalizedDiagnostics = useMemo(() => diagnostics, [diagnostics]);
 
     useEffect(() => {
       changeHandlerReference.current = onChange;
     }, [onChange]);
 
     useEffect(() => {
-      if (hostReference.current === null || viewReference.current !== null) {
+      selectionHandlerReference.current = onSelectionChange;
+    }, [onSelectionChange]);
+
+    useEffect(() => {
+      configureMonaco();
+      const host = hostReference.current;
+      if (host === null || editorReference.current !== null) {
         return;
       }
-      const view = new EditorView({
-        parent: hostReference.current,
-        state: EditorState.create({
-          doc: value,
-          extensions: [
-            lineNumbers(),
-            foldGutter(),
-            highlightActiveLineGutter(),
-            highlightSpecialChars(),
-            history(),
-            drawSelection(),
-            dropCursor(),
-            EditorState.allowMultipleSelections.of(true),
-            indentOnInput(),
-            syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
-            syntaxHighlighting(editorHighlightStyle),
-            bracketMatching(),
-            rectangularSelection(),
-            highlightActiveLine(),
-            javascript({ typescript: true }),
-            lintGutter(),
-            linter(() => []),
-            EditorView.contentAttributes.of({
-              'data-testid': 'document-source-editor-input',
-              'aria-label': 'Document source editor',
-            }),
-            activeDiagnosticField,
-            keymap.of([indentWithTab, ...defaultKeymap, ...historyKeymap]),
-            editorTheme,
-            EditorView.updateListener.of((update) => {
-              if (!update.docChanged || isSynchronizingReference.current) {
-                return;
-              }
-              changeHandlerReference.current(update.state.doc.toString());
-            }),
-          ],
-        }),
+
+      const model = monaco.editor.createModel(value, 'typescript');
+      modelReference.current = model;
+
+      const editor = monaco.editor.create(host, {
+        model,
+        automaticLayout: true,
+        minimap: { enabled: false },
+        lineNumbers: 'on',
+        glyphMargin: true,
+        roundedSelection: false,
+        scrollBeyondLastLine: false,
+        overviewRulerBorder: false,
+        fontFamily: "'IBM Plex Mono', 'SFMono-Regular', monospace",
+        fontSize: 14,
+        lineHeight: 26,
+        tabSize: 2,
+        insertSpaces: true,
+        wordWrap: 'on',
+        theme: 'cad-dark',
+        renderLineHighlight: 'all',
+        padding: {
+          top: 14,
+          bottom: 18,
+        },
       });
-      viewReference.current = view;
+      editorReference.current = editor;
+      decorationCollectionReference.current = editor.createDecorationsCollection();
+      installEditorTestHooks(host, editor, model);
+      const inputObserver = observeEditorInput(host);
+
+      const contentChangeDisposable = editor.onDidChangeModelContent(() => {
+        if (isApplyingExternalChangeReference.current) {
+          return;
+        }
+        changeHandlerReference.current(editor.getValue());
+      });
+      const cursorChangeDisposable = editor.onDidChangeCursorSelection((event: monaco.editor.ICursorSelectionChangedEvent) => {
+        if (isApplyingExternalChangeReference.current || suppressSelectionEventsReference.current) {
+          return;
+        }
+        const nextSelection = event.selection;
+        const activeModel = editor.getModel();
+        if (activeModel === null) {
+          return;
+        }
+        selectionHandlerReference.current?.({
+          start: activeModel.getOffsetAt(nextSelection.getStartPosition()),
+          end: activeModel.getOffsetAt(nextSelection.getEndPosition()),
+        });
+      });
+
       return () => {
-        view.destroy();
-        viewReference.current = null;
+        removeEditorTestHooks(host);
+        inputObserver?.disconnect();
+        cursorChangeDisposable.dispose();
+        contentChangeDisposable.dispose();
+        decorationCollectionReference.current?.clear();
+        decorationCollectionReference.current = null;
+        editor.dispose();
+        editorReference.current = null;
+        model.dispose();
+        modelReference.current = null;
       };
     }, [value]);
 
     useEffect(() => {
-      const view = viewReference.current;
-      if (view === null) {
+      const editor = editorReference.current;
+      const model = modelReference.current;
+      if (editor === null || model === null || model.getValue() === value) {
         return;
       }
-      const currentValue = view.state.doc.toString();
-      if (currentValue === value) {
-        return;
+      const previousValue = model.getValue();
+      const previousSelection = editor.getSelection();
+      const previousScrollTop = typeof editor.getScrollTop === 'function' ? editor.getScrollTop() : null;
+      const previousScrollLeft = typeof editor.getScrollLeft === 'function' ? editor.getScrollLeft() : null;
+      isApplyingExternalChangeReference.current = true;
+      suppressSelectionEventsReference.current = true;
+      model.setValue(value);
+      if (previousSelection !== null) {
+        const nextSelection = mapSelectionThroughReplacement(previousValue, value, previousSelection, model);
+        editor.setSelection(nextSelection);
       }
-      isSynchronizingReference.current = true;
-      view.dispatch({
-        changes: { from: 0, to: currentValue.length, insert: value },
-      });
-      isSynchronizingReference.current = false;
+      if (previousScrollTop !== null && typeof editor.setScrollTop === 'function') {
+        editor.setScrollTop(previousScrollTop);
+      }
+      if (previousScrollLeft !== null && typeof editor.setScrollLeft === 'function') {
+        editor.setScrollLeft(previousScrollLeft);
+      }
+      suppressSelectionEventsReference.current = false;
+      isApplyingExternalChangeReference.current = false;
     }, [value]);
 
     useEffect(() => {
-      const view = viewReference.current;
-      if (view === null) {
+      const model = modelReference.current;
+      if (model === null) {
         return;
       }
-      view.dispatch(setDiagnostics(view.state, toCodeMirrorDiagnostics(lintDiagnostics, view.state.doc.length)));
-    }, [lintDiagnostics]);
+      monaco.editor.setModelMarkers(model, 'cad-runtime', normalizedDiagnostics.map((diagnostic) => ({
+        severity: monaco.MarkerSeverity.Error,
+        message: diagnostic.message,
+        code: diagnostic.code,
+        startLineNumber: positionForOffset(model, diagnostic.range?.start ?? 0).lineNumber,
+        startColumn: positionForOffset(model, diagnostic.range?.start ?? 0).column,
+        endLineNumber: positionForOffset(model, diagnostic.range?.end ?? diagnostic.range?.start ?? 0).lineNumber,
+        endColumn: normalizeMarkerEnd(model, diagnostic),
+      })));
+    }, [normalizedDiagnostics]);
 
     useEffect(() => {
-      const view = viewReference.current;
-      if (view === null) {
+      const editor = editorReference.current;
+      const model = modelReference.current;
+      const collection = decorationCollectionReference.current;
+      if (editor === null || model === null || collection === null) {
         return;
       }
       const activeDiagnostic =
         activeDiagnosticIndex === null ? null : (diagnostics[activeDiagnosticIndex] ?? null);
-      view.dispatch({
-        effects: setActiveRangeEffect.of(toActiveRange(activeDiagnostic, view.state.doc.length)),
-      });
+      if (activeDiagnostic?.range === undefined) {
+        collection.set([]);
+        return;
+      }
+      const start = positionForOffset(model, activeDiagnostic.range.start);
+      const end = positionForOffset(model, Math.max(activeDiagnostic.range.end, activeDiagnostic.range.start));
+      collection.set([
+        {
+          range: new monaco.Range(start.lineNumber, start.column, end.lineNumber, normalizeMarkerEnd(model, activeDiagnostic)),
+          options: {
+            className: 'monaco-diagnostic-range-active',
+            isWholeLine: false,
+          },
+        },
+      ]);
     }, [activeDiagnosticIndex, diagnostics]);
 
     useImperativeHandle(ref, () => ({
       focusRange(start, end) {
-        const view = viewReference.current;
-        if (view === null) {
+        const editor = editorReference.current;
+        const model = modelReference.current;
+        if (editor === null || model === null) {
           return;
         }
-        const safeStart = clampOffset(start, view.state.doc.length);
-        const safeEnd = clampOffset(Math.max(end, start), view.state.doc.length);
-        view.dispatch({
-          selection: EditorSelection.single(safeStart, safeEnd),
-          scrollIntoView: true,
-          effects: setActiveRangeEffect.of({
-            from: safeStart,
-            to: normalizeRangeEnd(safeStart, safeEnd, view.state.doc.length),
-          }),
-        });
-        view.focus();
+        const safeStart = clampOffset(start, model.getValueLength());
+        const safeEnd = Math.max(safeStart, clampOffset(end, model.getValueLength()));
+        const startPosition = positionForOffset(model, safeStart);
+        const endPosition = positionForOffset(model, safeEnd);
+        suppressSelectionEventsReference.current = true;
+        editor.setSelection(new monaco.Range(startPosition.lineNumber, startPosition.column, endPosition.lineNumber, normalizeEndColumn(model, safeEnd, endPosition)));
+        editor.revealRangeInCenter(editor.getSelection() ?? new monaco.Range(1, 1, 1, 1));
+        editor.focus();
+        suppressSelectionEventsReference.current = false;
       },
       focusStart() {
-        const view = viewReference.current;
-        if (view === null) {
+        const editor = editorReference.current;
+        if (editor === null) {
           return;
         }
-        view.dispatch({
-          selection: EditorSelection.cursor(0),
-          scrollIntoView: true,
-          effects: setActiveRangeEffect.of(null),
-        });
-        view.focus();
+        suppressSelectionEventsReference.current = true;
+        editor.setPosition({ lineNumber: 1, column: 1 });
+        editor.focus();
+        suppressSelectionEventsReference.current = false;
       },
     }), []);
 
@@ -279,47 +225,195 @@ export const DocumentSourceEditor = forwardRef<DocumentSourceEditorHandle, Docum
 
 DocumentSourceEditor.displayName = 'DocumentSourceEditor';
 
-function toActiveRange(
-  diagnostic: RuntimeDiagnostic | null,
-  sourceLength: number,
-): { readonly from: number; readonly to: number } | null {
-  if (diagnostic?.range === undefined) {
-    return null;
+function configureMonaco(): void {
+  if (monacoConfigured) {
+    return;
   }
-  const from = clampOffset(diagnostic.range.start, sourceLength);
-  const to = normalizeRangeEnd(from, clampOffset(Math.max(diagnostic.range.end, diagnostic.range.start), sourceLength), sourceLength);
-  return { from, to };
+  monacoConfigured = true;
+  globalThis.MonacoEnvironment = {
+    getWorker(_moduleId: string, label: string) {
+      if (label === 'typescript' || label === 'javascript') {
+        return new tsWorker();
+      }
+      return new editorWorker();
+    },
+  };
+  monaco.editor.defineTheme('cad-dark', {
+    base: 'vs-dark',
+    inherit: true,
+    rules: [
+      { token: 'keyword', foreground: '7DD3FC' },
+      { token: 'string', foreground: '86EFAC' },
+      { token: 'number', foreground: 'FCA5A5' },
+      { token: 'comment', foreground: '7A8CA6', fontStyle: 'italic' },
+      { token: 'delimiter', foreground: 'CBD5E1' },
+    ],
+    colors: {
+      'editor.background': '#08121f',
+      'editor.lineHighlightBackground': '#16253e85',
+      'editorLineNumber.foreground': '#73849c',
+      'editorLineNumber.activeForeground': '#f1f5f9',
+      'editorCursor.foreground': '#f8fafc',
+      'editor.selectionBackground': '#60a5fa47',
+      'editor.inactiveSelectionBackground': '#60a5fa2c',
+      'editorGutter.background': '#08121f',
+      'editorIndentGuide.background1': '#1e293b',
+      'editorIndentGuide.activeBackground1': '#334155',
+    },
+  });
+  const typescriptLanguage = monaco.languages.typescript as unknown as {
+    readonly ScriptTarget: { readonly ESNext: number };
+    readonly ModuleKind: { readonly ESNext: number };
+    readonly ModuleResolutionKind: { readonly NodeJs: number };
+    readonly typescriptDefaults: {
+      setCompilerOptions(options: Record<string, unknown>): void;
+      setDiagnosticsOptions(options: Record<string, unknown>): void;
+    };
+  };
+  typescriptLanguage.typescriptDefaults.setCompilerOptions({
+    target: typescriptLanguage.ScriptTarget.ESNext,
+    module: typescriptLanguage.ModuleKind.ESNext,
+    allowNonTsExtensions: true,
+    moduleResolution: typescriptLanguage.ModuleResolutionKind.NodeJs,
+    strict: true,
+    noEmit: true,
+  });
+  typescriptLanguage.typescriptDefaults.setDiagnosticsOptions({
+    noSemanticValidation: false,
+    noSyntaxValidation: false,
+  });
 }
 
-function normalizeRangeEnd(from: number, to: number, sourceLength: number): number {
-  if (to > from) {
-    return to;
+function tagEditorInput(host: HTMLDivElement): void {
+  const input = host.querySelector('textarea.inputarea');
+  input?.setAttribute('data-testid', 'document-source-editor-input');
+  input?.setAttribute('aria-label', 'Document source editor');
+}
+
+function observeEditorInput(host: HTMLDivElement): MutationObserver | null {
+  tagEditorInput(host);
+  if (host.querySelector('textarea.inputarea') !== null || typeof MutationObserver === 'undefined') {
+    return null;
   }
-  if (from >= sourceLength) {
-    return Math.max(0, sourceLength);
+  const observer = new MutationObserver(() => {
+    tagEditorInput(host);
+    if (host.querySelector('textarea.inputarea') !== null) {
+      observer.disconnect();
+    }
+  });
+  observer.observe(host, { childList: true, subtree: true });
+  return observer;
+}
+
+function installEditorTestHooks(
+  host: HTMLDivElement,
+  editor: monaco.editor.IStandaloneCodeEditor,
+  model: monaco.editor.ITextModel,
+): void {
+  Object.assign(host, {
+    __cadSetSource(nextSource: string) {
+      editor.pushUndoStop();
+      editor.executeEdits('cad-e2e-set-source', [
+        {
+          range: model.getFullModelRange(),
+          text: nextSource,
+          forceMoveMarkers: true,
+        },
+      ]);
+      editor.pushUndoStop();
+    },
+    __cadGetSource() {
+      return model.getValue();
+    },
+  });
+}
+
+function removeEditorTestHooks(host: HTMLDivElement): void {
+  Reflect.deleteProperty(host, '__cadSetSource');
+  Reflect.deleteProperty(host, '__cadGetSource');
+}
+
+function positionForOffset(model: monaco.editor.ITextModel, offset: number): monaco.Position {
+  return model.getPositionAt(clampOffset(offset, model.getValueLength()));
+}
+
+function normalizeMarkerEnd(model: monaco.editor.ITextModel, diagnostic: RuntimeDiagnostic): number {
+  if (diagnostic.range === undefined) {
+    return 1;
   }
-  return Math.min(sourceLength, from + 1);
+  const safeEnd = Math.max(diagnostic.range.end, diagnostic.range.start);
+  const endPosition = positionForOffset(model, safeEnd);
+  return normalizeEndColumn(model, safeEnd, endPosition);
+}
+
+function normalizeEndColumn(
+  model: monaco.editor.ITextModel,
+  offset: number,
+  endPosition: monaco.Position,
+): number {
+  if (offset < model.getValueLength()) {
+    return endPosition.column;
+  }
+  return Math.max(1, endPosition.column);
 }
 
 function clampOffset(offset: number, sourceLength: number): number {
   return Math.max(0, Math.min(offset, sourceLength));
 }
 
-function toCodeMirrorDiagnostics(
-  runtimeDiagnostics: readonly RuntimeDiagnostic[],
-  sourceLength: number,
-): Diagnostic[] {
-  return runtimeDiagnostics.map((diagnostic) => {
-    const from = clampOffset(diagnostic.range?.start ?? 0, sourceLength);
-    const to = diagnostic.range === undefined
-      ? from
-      : normalizeRangeEnd(from, clampOffset(Math.max(diagnostic.range.end, diagnostic.range.start), sourceLength), sourceLength);
-    return {
-      from,
-      to,
-      severity: 'error',
-      source: diagnostic.code,
-      message: diagnostic.message,
-    };
-  });
+function mapSelectionThroughReplacement(
+  previousSource: string,
+  nextSource: string,
+  selection: monaco.Selection | monaco.Range,
+  model: monaco.editor.ITextModel,
+): monaco.Range {
+  const previousStart = model.getOffsetAt(selection.getStartPosition());
+  const previousEnd = model.getOffsetAt(selection.getEndPosition());
+  const nextStart = mapOffsetThroughReplacement(previousSource, nextSource, previousStart);
+  const nextEnd = mapOffsetThroughReplacement(previousSource, nextSource, previousEnd);
+  const nextStartPosition = positionForOffset(model, nextStart);
+  const nextEndPosition = positionForOffset(model, Math.max(nextStart, nextEnd));
+  return new monaco.Range(
+    nextStartPosition.lineNumber,
+    nextStartPosition.column,
+    nextEndPosition.lineNumber,
+    normalizeEndColumn(model, Math.max(nextStart, nextEnd), nextEndPosition),
+  );
+}
+
+function mapOffsetThroughReplacement(previousSource: string, nextSource: string, offset: number): number {
+  const commonPrefixLength = sharedPrefixLength(previousSource, nextSource);
+  const commonSuffixLength = sharedSuffixLength(previousSource, nextSource, commonPrefixLength);
+  const previousChangedEnd = previousSource.length - commonSuffixLength;
+  const nextChangedEnd = nextSource.length - commonSuffixLength;
+  if (offset <= commonPrefixLength) {
+    return offset;
+  }
+  if (offset >= previousChangedEnd) {
+    return nextChangedEnd + (offset - previousChangedEnd);
+  }
+  return nextChangedEnd;
+}
+
+function sharedPrefixLength(left: string, right: string): number {
+  const limit = Math.min(left.length, right.length);
+  let index = 0;
+  while (index < limit && left[index] === right[index]) {
+    index += 1;
+  }
+  return index;
+}
+
+function sharedSuffixLength(left: string, right: string, prefixLength: number): number {
+  const leftRemaining = left.length - prefixLength;
+  const rightRemaining = right.length - prefixLength;
+  const limit = Math.min(leftRemaining, rightRemaining);
+  let index = 0;
+  while (
+    index < limit
+    && left[left.length - 1 - index] === right[right.length - 1 - index]
+  ) {
+    index += 1;
+  }
+  return index;
 }

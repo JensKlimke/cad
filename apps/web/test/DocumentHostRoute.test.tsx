@@ -9,6 +9,42 @@ import type { ForwardedRef, ReactNode } from 'react';
 type I18nInstance = Awaited<ReturnType<typeof createBrowserI18n>>;
 let failBuildRequest = false;
 
+class FakeEventSource {
+  static instances: FakeEventSource[] = [];
+
+  readonly listeners = new Map<string, Set<EventListener>>();
+  readonly url: string;
+  readonly withCredentials: boolean;
+  closed = false;
+
+  constructor(url: string | URL, init?: EventSourceInit) {
+    this.url = String(url);
+    this.withCredentials = init?.withCredentials ?? false;
+    FakeEventSource.instances.push(this);
+  }
+
+  addEventListener(type: string, listener: EventListener): void {
+    const listeners = this.listeners.get(type) ?? new Set<EventListener>();
+    listeners.add(listener);
+    this.listeners.set(type, listeners);
+  }
+
+  removeEventListener(type: string, listener: EventListener): void {
+    this.listeners.get(type)?.delete(listener);
+  }
+
+  close(): void {
+    this.closed = true;
+  }
+
+  emit(type: string, data: unknown): void {
+    const event = new MessageEvent(type, { data: JSON.stringify(data) });
+    for (const listener of this.listeners.get(type) ?? []) {
+      listener(event);
+    }
+  }
+}
+
 vi.mock('../src/viewport/Viewport.js', () => ({
   Viewport: ({ tessellation }: { readonly tessellation?: { readonly metadata: { readonly hash: string } } }) => (
     <div data-testid="mock-viewport">{tessellation?.metadata.hash ?? 'no-hash'}</div>
@@ -119,7 +155,35 @@ const BUILD_RESPONSE = {
         source: { kind: 'number', value: 30, unit: 'mm' },
       },
     },
-    features: [{ id: 'pad_1', kind: 'pad', inputHash: 'b'.repeat(64), cached: false }],
+    features: [
+      {
+        id: 'sketch_1',
+        kind: 'sketch',
+        inputHash: 'a'.repeat(64),
+        cached: false,
+        sketch: {
+          plane: 'xy',
+          svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="-20 -20 120 90" data-cad-plane="xy" data-cad-kind="rectangle">  <rect x="0" y="0" width="10" height="20" fill="none" stroke="currentColor" stroke-width="1" /></svg>',
+          geometry: { kind: 'rectangle', x: 0, y: 0, width: 10, height: 20 },
+          constraints: {
+            kind: 'rectangle',
+            anchor: 'origin',
+            width: { kind: 'reference', name: 'width' },
+            height: { kind: 'reference', name: 'depth' },
+          },
+          dimensions: { width: 10, height: 20 },
+          status: 'fully_constrained',
+          diagnostics: [],
+        },
+      },
+      {
+        id: 'pad_1',
+        kind: 'pad',
+        inputHash: 'b'.repeat(64),
+        cached: false,
+        pad: { sketch: 'sketch_1', length: 30, direction: 'up' },
+      },
+    ],
     tessellation: {
       positions: [0, 0, 0, 1, 0, 0, 0, 1, 0],
       normals: [0, 0, 1, 0, 0, 1, 0, 0, 1],
@@ -144,6 +208,7 @@ describe('<DocumentHostRoute />', () => {
   beforeEach(() => {
     vi.resetModules();
     failBuildRequest = false;
+    FakeEventSource.instances = [];
     globalThis.history.replaceState(
       null,
       '',
@@ -175,7 +240,7 @@ describe('<DocumentHostRoute />', () => {
             id: '01HQ8K3VBRZ8XGRGY5T0WJD8AF',
             projectId: '01HQ8K3VBRZ8XGRGY5T0WJD8AH',
             name: 'Bracket',
-            tsSource: `import { body, defineDocument, pad, parameters, reference } from '@cad/sdk';
+            tsSource: `import { body, defineDocument, feature, pad, parameters, reference, sketch } from '@cad/sdk';
 
 export default defineDocument({
   parameters: parameters({
@@ -183,7 +248,20 @@ export default defineDocument({
     depth: { kind: 'number', value: 20, unit: 'mm' },
     height: { kind: 'number', value: 30, unit: 'mm' },
   }),
-  body: body([pad({ id: 'pad_1', width: reference('width'), depth: reference('depth'), height: reference('height') })]),
+  body: body([
+    sketch({
+      id: 'sketch_1',
+      plane: 'xy',
+      svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="-20 -20 120 90" data-cad-plane="xy" data-cad-kind="rectangle">  <rect x="0" y="0" width="10" height="20" fill="none" stroke="currentColor" stroke-width="1" /></svg>',
+      constraints: {
+        kind: 'rectangle',
+        anchor: 'origin',
+        width: { kind: 'reference', name: 'width' },
+        height: { kind: 'reference', name: 'depth' },
+      },
+    }),
+    pad({ id: 'pad_1', sketch: feature('sketch_1'), length: reference('height'), direction: 'up' }),
+  ]),
 });
 `,
             headVersionId: null,
@@ -238,6 +316,7 @@ export default defineDocument({
       }),
     );
     vi.stubGlobal('confirm', vi.fn(() => false));
+    vi.stubGlobal('EventSource', FakeEventSource);
   });
 
   afterEach(() => {
@@ -263,8 +342,8 @@ export default defineDocument({
 
     const editor = screen.getByTestId('document-source-editor') as HTMLTextAreaElement;
     expect(editor.value).toContain('defineDocument');
-    expect(screen.getAllByText('Build ready. Tessellation hash c3a9076d584f')).toHaveLength(2);
-    expect(screen.getByText('width')).toBeDefined();
+    expect(screen.getByText('Build ready. Tessellation hash c3a9076d584f')).toBeDefined();
+    expect(screen.getAllByText('width').length).toBeGreaterThan(0);
     expect(screen.getByText('10 mm')).toBeDefined();
     expect(screen.getByTestId('document-save-status').textContent).toContain('Saved source is ready to build.');
     expect(screen.getByTestId('document-build-status').textContent).toContain('Build ready');
@@ -283,11 +362,14 @@ export default defineDocument({
     await waitFor(() => {
       expect(screen.getByTestId('document-source-editor')).toBeDefined();
     });
+    await waitFor(() => {
+      expect(screen.getByTestId('document-build-status').textContent).toContain('Build ready');
+    });
 
     const editor = screen.getByTestId('document-source-editor');
     fireEvent.change(editor, {
       target: {
-        value: `import { body, defineDocument, pad, parameters, reference } from '@cad/sdk';
+        value: `import { body, defineDocument, feature, pad, parameters, reference, sketch } from '@cad/sdk';
 
 export default defineDocument({
   parameters: parameters({
@@ -295,7 +377,20 @@ export default defineDocument({
     depth: { kind: 'number', value: 20, unit: 'mm' },
     height: { kind: 'number', value: 30, unit: 'mm' },
   }),
-  body: body([pad({ id: 'pad_1', width: reference('width'), depth: reference('depth'), height: reference('height') })]),
+  body: body([
+    sketch({
+      id: 'sketch_1',
+      plane: 'xy',
+      svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="-20 -20 120 90" data-cad-plane="xy" data-cad-kind="rectangle">  <rect x="0" y="0" width="12" height="20" fill="none" stroke="currentColor" stroke-width="1" /></svg>',
+      constraints: {
+        kind: 'rectangle',
+        anchor: 'origin',
+        width: { kind: 'reference', name: 'width' },
+        height: { kind: 'reference', name: 'depth' },
+      },
+    }),
+    pad({ id: 'pad_1', sketch: feature('sketch_1'), length: reference('height'), direction: 'up' }),
+  ]),
 });
 `,
       },
@@ -309,6 +404,126 @@ export default defineDocument({
 
     await waitFor(() => {
       expect(screen.getByTestId('document-save-status').textContent).toContain('All changes saved to the server.');
+    });
+  });
+
+  it('applies parameter inspector edits back into canonical source', async () => {
+    const { App } = await import('../src/App.js');
+    render(
+      <I18nProvider i18n={i18n}>
+        <QueryClientProvider client={makeQueryClient()}>
+          <App />
+        </QueryClientProvider>
+      </I18nProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('document-source-editor')).toBeDefined();
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId('document-build-status').textContent).toContain('Build ready');
+    });
+
+    fireEvent.click(screen.getByTestId('authoring-parameter-parameter_1'));
+    await waitFor(() => {
+      expect(screen.getByTestId('document-inspector-parameter')).toBeDefined();
+    });
+
+    fireEvent.change(screen.getByTestId('document-inspector-parameter-value'), {
+      target: { value: '14' },
+    });
+    fireEvent.click(screen.getByTestId('document-inspector-save-parameter'));
+
+    await waitFor(() => {
+      expect((screen.getByTestId('document-source-editor') as HTMLTextAreaElement).value).toContain(
+        "width: { kind: 'number', value: 14, unit: 'mm' }",
+      );
+    });
+    expect(screen.getByTestId('document-save-status').textContent).toContain('Draft updated locally');
+    expect((screen.getByTestId('document-undo') as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('undoes and redoes source edits through the shared authoring history controls', async () => {
+    const { App } = await import('../src/App.js');
+    render(
+      <I18nProvider i18n={i18n}>
+        <QueryClientProvider client={makeQueryClient()}>
+          <App />
+        </QueryClientProvider>
+      </I18nProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('document-source-editor')).toBeDefined();
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId('document-build-status').textContent).toContain('Build ready');
+    });
+
+    const editor = screen.getByTestId('document-source-editor') as HTMLTextAreaElement;
+    fireEvent.change(editor, {
+      target: {
+        value: editor.value.replace("value: 10", "value: 14"),
+      },
+    });
+
+    expect(editor.value).toContain("value: 14");
+    expect((screen.getByTestId('document-undo') as HTMLButtonElement).disabled).toBe(false);
+
+    fireEvent.click(screen.getByTestId('document-undo'));
+
+    await waitFor(() => {
+      expect((screen.getByTestId('document-source-editor') as HTMLTextAreaElement).value).toContain("value: 10");
+    });
+    expect((screen.getByTestId('document-redo') as HTMLButtonElement).disabled).toBe(false);
+
+    fireEvent.click(screen.getByTestId('document-redo'));
+
+    await waitFor(() => {
+      expect((screen.getByTestId('document-source-editor') as HTMLTextAreaElement).value).toContain("value: 14");
+    });
+    expect(screen.getByText('1 undo / 0 redo')).toBeDefined();
+  });
+
+  it('applies sketch dimension edits back into canonical source', async () => {
+    const { App } = await import('../src/App.js');
+    render(
+      <I18nProvider i18n={i18n}>
+        <QueryClientProvider client={makeQueryClient()}>
+          <App />
+        </QueryClientProvider>
+      </I18nProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('document-source-editor')).toBeDefined();
+    });
+
+    fireEvent.click(screen.getByTestId('authoring-feature-sketch_1'));
+    await waitFor(() => {
+      expect(screen.getByTestId('document-inspector-feature')).toBeDefined();
+    });
+    fireEvent.click(screen.getByTestId('document-inspector-edit-sketch'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('sketch-mode')).toBeDefined();
+    });
+
+    fireEvent.change(screen.getByTestId('sketch-width-binding'), {
+      target: { value: 'literal' },
+    });
+    fireEvent.change(screen.getByTestId('sketch-width-literal'), {
+      target: { value: '26' },
+    });
+    fireEvent.click(screen.getByTestId('sketch-apply-bindings'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('sketch-preview-size').textContent).toContain('26 × 20 mm');
+    });
+    await waitFor(() => {
+      expect((screen.getByTestId('document-source-editor') as HTMLTextAreaElement).value).toContain(
+        "width: { kind: 'literal', value: 26, unit: 'mm' }",
+      );
     });
   });
 
@@ -326,10 +541,13 @@ export default defineDocument({
     await waitFor(() => {
       expect(screen.getByTestId('document-source-editor')).toBeDefined();
     });
+    await waitFor(() => {
+      expect(screen.getByTestId('document-build-status').textContent).toContain('Build ready');
+    });
 
     fireEvent.change(screen.getByTestId('document-source-editor'), {
       target: {
-        value: `import { body, defineDocument, pad, parameters, reference } from '@cad/sdk';
+        value: `import { body, defineDocument, feature, pad, parameters, reference, sketch } from '@cad/sdk';
 
 export default defineDocument({
   parameters: parameters({
@@ -337,7 +555,20 @@ export default defineDocument({
     depth: { kind: 'number', value: 20, unit: 'mm' },
     height: { kind: 'number', value: 30, unit: 'mm' },
   }),
-  body: body([pad({ id: 'pad_1', width: reference('width'), depth: reference('depth'), height: reference('height') })]),
+  body: body([
+    sketch({
+      id: 'sketch_1',
+      plane: 'xy',
+      svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="-20 -20 120 90" data-cad-plane="xy" data-cad-kind="rectangle">  <rect x="0" y="0" width="14" height="20" fill="none" stroke="currentColor" stroke-width="1" /></svg>',
+      constraints: {
+        kind: 'rectangle',
+        anchor: 'origin',
+        width: { kind: 'reference', name: 'width' },
+        height: { kind: 'reference', name: 'depth' },
+      },
+    }),
+    pad({ id: 'pad_1', sketch: feature('sketch_1'), length: reference('height'), direction: 'up' }),
+  ]),
 });
 `,
       },
@@ -391,5 +622,130 @@ export default defineDocument({
     await waitFor(() => {
       expect(screen.getByTestId('document-build-status').textContent).toContain('Build ready');
     });
+  });
+
+  it('updates the viewport when a build event arrives over the document stream', async () => {
+    const { App } = await import('../src/App.js');
+    render(
+      <I18nProvider i18n={i18n}>
+        <QueryClientProvider client={makeQueryClient()}>
+          <App />
+        </QueryClientProvider>
+      </I18nProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('mock-viewport')).toBeDefined();
+    });
+
+    const stream = FakeEventSource.instances.at(-1);
+    expect(stream?.url).toContain('/documents/01HQ8K3VBRZ8XGRGY5T0WJD8AF/events');
+    expect(stream?.withCredentials).toBe(true);
+
+    stream?.emit('message', {
+      type: 'documents.build.ready',
+      payload: {
+        ...BUILD_RESPONSE,
+        build: {
+          ...BUILD_RESPONSE.build,
+          tessellation: {
+            ...BUILD_RESPONSE.build.tessellation,
+            metadata: {
+              ...BUILD_RESPONSE.build.tessellation.metadata,
+              hash: 'f'.repeat(64),
+            },
+          },
+        },
+      },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('mock-viewport').textContent).toContain('f'.repeat(64));
+    });
+    expect(screen.getByTestId('document-build-status').textContent).toContain('Build ready');
+  });
+
+  it('shows remote running state without clearing the last successful viewport', async () => {
+    const { App } = await import('../src/App.js');
+    render(
+      <I18nProvider i18n={i18n}>
+        <QueryClientProvider client={makeQueryClient()}>
+          <App />
+        </QueryClientProvider>
+      </I18nProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('mock-viewport').textContent).toContain(
+        'c3a9076d584ff45bacc82ee495860a8a60815b0f4f6e917edf2a6a437a427cb0',
+      );
+    });
+
+    const stream = FakeEventSource.instances.at(-1);
+    stream?.emit('message', {
+      type: 'documents.build.running',
+      payload: {
+        documentId: '01HQ8K3VBRZ8XGRGY5T0WJD8AF',
+      },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('document-build-status').textContent).toContain(
+        'A build started in another session.',
+      );
+    });
+    expect(screen.getByTestId('mock-viewport').textContent).toContain(
+      'c3a9076d584ff45bacc82ee495860a8a60815b0f4f6e917edf2a6a437a427cb0',
+    );
+    expect(screen.getByTestId('document-viewport-summary').textContent).toContain(
+      'Showing the last successful build while a newer streamed build is running',
+    );
+  });
+
+  it('shows streamed diagnostics on remote build failure while keeping the last successful viewport', async () => {
+    const { App } = await import('../src/App.js');
+    render(
+      <I18nProvider i18n={i18n}>
+        <QueryClientProvider client={makeQueryClient()}>
+          <App />
+        </QueryClientProvider>
+      </I18nProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('mock-viewport').textContent).toContain(
+        'c3a9076d584ff45bacc82ee495860a8a60815b0f4f6e917edf2a6a437a427cb0',
+      );
+    });
+
+    const stream = FakeEventSource.instances.at(-1);
+    stream?.emit('message', {
+      type: 'documents.build.failed',
+      payload: {
+        documentId: '01HQ8K3VBRZ8XGRGY5T0WJD8AF',
+        message: 'Only "@cad/sdk" imports are allowed in document.ts, received "node:fs".',
+        diagnostics: [
+          {
+            code: 'runtime.unsupported_import',
+            message: 'Only "@cad/sdk" imports are allowed in document.ts, received "node:fs".',
+            range: { start: 8, end: 15 },
+            path: ['imports', '0'],
+          },
+        ],
+      },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('document-build-status').textContent).toContain(
+        'A streamed build failed in another session.',
+      );
+    });
+    expect(screen.getByTestId('document-diagnostics').textContent).toContain('runtime.unsupported_import');
+    expect(screen.getByTestId('mock-viewport').textContent).toContain(
+      'c3a9076d584ff45bacc82ee495860a8a60815b0f4f6e917edf2a6a437a427cb0',
+    );
+    expect(screen.getByTestId('document-viewport-summary').textContent).toContain(
+      'Showing the last successful build because the latest streamed build failed',
+    );
   });
 });

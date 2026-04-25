@@ -28,6 +28,7 @@
     "@cad/expr": "workspace:*",
     "@cad/kernel": "workspace:*",
     "@cad/sdk": "workspace:*",
+    "@cad/sketch": "workspace:*",
     "typescript": "^6.0.2"
   },
   "devDependencies": {

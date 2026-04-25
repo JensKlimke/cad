@@ -4,6 +4,7 @@
 
 import {
   BuildDocumentResponseSchema,
+  DocumentBuildEventSchema,
   DocumentSchema,
   RuntimeDiagnosticSchema,
   UpdateDocumentRequestSchema,
@@ -13,13 +14,33 @@ import {
   type UpdateDocumentRequest,
 } from '@cad/protocol';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect } from 'react';
 
-import { ApiClientError, apiFetch } from './client.js';
+import { ApiClientError, apiFetch, buildApiUrl } from './client.js';
 
 import type { TessellationResult } from '@cad/kernel';
 
 export const documentQueryKey = (id: string) => ['documents', id] as const;
 export const documentBuildQueryKey = (id: string) => ['documents', id, 'build'] as const;
+export const documentBuildStreamStateQueryKey = (id: string) => ['documents', id, 'build-stream'] as const;
+
+export type DocumentBuildStreamState =
+  | null
+  | {
+      readonly kind: 'running';
+      readonly documentId: string;
+    }
+  | {
+      readonly kind: 'ready';
+      readonly documentId: string;
+      readonly hash: string;
+    }
+  | {
+      readonly kind: 'failed';
+      readonly documentId: string;
+      readonly message: string;
+      readonly diagnostics: readonly RuntimeDiagnostic[];
+    };
 
 export function useDocument(id: string | undefined) {
   return useQuery({
@@ -64,7 +85,101 @@ export function useBuildDocument(id: string) {
   });
 }
 
-export function buildToTessellation(build: BuildDocumentResponse): TessellationResult {
+export function useDocumentBuildState(id: string | undefined) {
+  const queryClient = useQueryClient();
+  return useQuery<BuildDocumentResponse | null>({
+    queryKey: id === undefined ? ['documents', 'build'] : documentBuildQueryKey(id),
+    queryFn: async () => null,
+    initialData:
+      id === undefined
+        ? null
+        : ((queryClient.getQueryData(documentBuildQueryKey(id)) as BuildDocumentResponse | undefined) ?? null),
+    enabled: false,
+    staleTime: Number.POSITIVE_INFINITY,
+  });
+}
+
+export function useDocumentBuildStreamState(id: string | undefined) {
+  const queryClient = useQueryClient();
+  return useQuery<DocumentBuildStreamState>({
+    queryKey: id === undefined ? ['documents', 'build-stream'] : documentBuildStreamStateQueryKey(id),
+    queryFn: async () => null,
+    initialData:
+      id === undefined
+        ? null
+        : ((queryClient.getQueryData(documentBuildStreamStateQueryKey(id)) as DocumentBuildStreamState | undefined)
+            ?? null),
+    enabled: false,
+    staleTime: Number.POSITIVE_INFINITY,
+  });
+}
+
+export function useDocumentBuildEvents(
+  id: string | undefined,
+  onBuild?: (build: BuildDocumentResponse) => void,
+) {
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (id === undefined || typeof EventSource === 'undefined') {
+      return;
+    }
+
+    const source = new EventSource(buildApiUrl(`/documents/${id}/events`), { withCredentials: true });
+
+    const handleMessage = (event: MessageEvent<string>): void => {
+      let payload: unknown;
+      try {
+        payload = JSON.parse(event.data);
+      } catch {
+        return;
+      }
+      const result = DocumentBuildEventSchema.safeParse(payload);
+      if (!result.success) {
+        return;
+      }
+      switch (result.data.type) {
+        case 'documents.build.running': {
+          queryClient.setQueryData(documentBuildStreamStateQueryKey(id), {
+            kind: 'running',
+            documentId: result.data.payload.documentId,
+          } satisfies DocumentBuildStreamState);
+          break;
+        }
+        case 'documents.build.failed': {
+          queryClient.setQueryData(documentBuildStreamStateQueryKey(id), {
+            kind: 'failed',
+            documentId: result.data.payload.documentId,
+            message: result.data.payload.message,
+            diagnostics: result.data.payload.diagnostics,
+          } satisfies DocumentBuildStreamState);
+          break;
+        }
+        case 'documents.build.ready': {
+          queryClient.setQueryData(documentBuildQueryKey(id), result.data.payload);
+          queryClient.setQueryData(documentBuildStreamStateQueryKey(id), {
+            kind: 'ready',
+            documentId: result.data.payload.documentId,
+            hash: result.data.payload.build.tessellation?.metadata.hash ?? result.data.payload.build.documentHash,
+          } satisfies DocumentBuildStreamState);
+          onBuild?.(result.data.payload);
+          break;
+        }
+      }
+    };
+
+    source.addEventListener('message', handleMessage as EventListener);
+    return () => {
+      source.removeEventListener('message', handleMessage as EventListener);
+      source.close();
+    };
+  }, [id, onBuild, queryClient]);
+}
+
+export function buildToTessellation(build: BuildDocumentResponse): TessellationResult | null {
+  if (build.build.tessellation === null) {
+    return null;
+  }
   return {
     positions: new Float32Array(build.build.tessellation.positions),
     normals: new Float32Array(build.build.tessellation.normals),
@@ -97,4 +212,14 @@ export function diagnosticsFromError(error: unknown): RuntimeDiagnostic[] {
   return details.diagnostics
     .map((diagnostic) => RuntimeDiagnosticSchema.safeParse(diagnostic))
     .flatMap((result) => (result.success ? [result.data] : []));
+}
+
+export async function downloadDocumentStl(id: string): Promise<Blob> {
+  const response = await fetch(buildApiUrl(`/documents/${id}/export/stl`), {
+    credentials: 'include',
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to export STL (${String(response.status)})`);
+  }
+  return response.blob();
 }

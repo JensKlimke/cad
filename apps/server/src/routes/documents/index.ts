@@ -21,13 +21,14 @@ import {
   type BuildDocumentResponse,
   BuildDocumentResponseSchema,
   CreateDocumentRequestSchema,
+  DocumentBuildEventSchema,
   DocumentSchema,
   ListDocumentsResponseSchema,
   PageParamsSchema,
   UlidSchema,
   UpdateDocumentRequestSchema,
 } from '@cad/protocol';
-import { executeDocument, RuntimeBuildError, type RuntimeBuildResult } from '@cad/runtime';
+import { executeDocument, exportBuildResultAsStl, RuntimeBuildError, type RuntimeBuildResult } from '@cad/runtime';
 import { z } from 'zod';
 
 import { ApiError, buildFailed, notFound, unauthorized } from '../../errors.js';
@@ -109,28 +110,68 @@ function serializeBuildResponse(
           },
         ]),
       ),
-      features: build.features.map((feature) => ({
-        id: feature.id,
-        kind: feature.kind,
-        inputHash: feature.inputHash,
-        cached: feature.cached,
-      })),
-      tessellation: {
-        positions: [...build.tessellation.positions],
-        normals: [...build.tessellation.normals],
-        indices: [...build.tessellation.indices],
-        metadata: {
-          hash: build.tessellation.metadata.hash,
-          triangleCount: build.tessellation.metadata.triangleCount,
-          vertexCount: build.tessellation.metadata.vertexCount,
-          bbox: {
-            min: [...build.tessellation.metadata.bbox.min] as [number, number, number],
-            max: [...build.tessellation.metadata.bbox.max] as [number, number, number],
-          },
-        },
-      },
+      features: build.features.map((feature) =>
+        feature.kind === 'sketch'
+          ? {
+              id: feature.id,
+              kind: feature.kind,
+              inputHash: feature.inputHash,
+              cached: feature.cached,
+              sketch: {
+                plane: feature.sketch.plane,
+                svg: feature.sketch.svg,
+                geometry: feature.sketch.geometry,
+                constraints: feature.sketch.constraints,
+                dimensions: feature.sketch.dimensions,
+                status: feature.sketch.status,
+                diagnostics: [...feature.sketch.diagnostics],
+              },
+            }
+          : {
+              id: feature.id,
+              kind: feature.kind,
+              inputHash: feature.inputHash,
+              cached: feature.cached,
+              pad: feature.pad,
+            },
+      ),
+      tessellation:
+        build.tessellation === null
+          ? null
+          : {
+              positions: [...build.tessellation.positions],
+              normals: [...build.tessellation.normals],
+              indices: [...build.tessellation.indices],
+              metadata: {
+                hash: build.tessellation.metadata.hash,
+                triangleCount: build.tessellation.metadata.triangleCount,
+                vertexCount: build.tessellation.metadata.vertexCount,
+                bbox: {
+                  min: [...build.tessellation.metadata.bbox.min] as [number, number, number],
+                  max: [...build.tessellation.metadata.bbox.max] as [number, number, number],
+                },
+              },
+            },
     },
   };
+}
+
+function serializeRuntimeDiagnostics(
+  diagnostics: readonly {
+    readonly code: string;
+    readonly message: string;
+    readonly range?: { readonly start: number; readonly end: number };
+    readonly path?: readonly string[];
+    readonly context?: Readonly<Record<string, string | number | boolean>>;
+  }[],
+): BuildDocumentFailureDetails['diagnostics'] {
+  return diagnostics.map((diagnostic) => ({
+    code: diagnostic.code,
+    message: diagnostic.message,
+    ...(diagnostic.range === undefined ? {} : { range: { ...diagnostic.range } }),
+    ...(diagnostic.path === undefined ? {} : { path: [...diagnostic.path] }),
+    ...(diagnostic.context === undefined ? {} : { context: { ...diagnostic.context } }),
+  }));
 }
 
 export const documentsRoutes: FastifyPluginAsyncZod = async (fastify) => {
@@ -355,6 +396,58 @@ export const documentsRoutes: FastifyPluginAsyncZod = async (fastify) => {
     },
   );
 
+  fastify.get(
+    '/documents/:id/events',
+    {
+      schema: {
+        params: DocumentIdParams,
+      },
+      preHandler: fastify.requireAuth,
+    },
+    async (request, reply) => {
+      const user = request.user;
+      if (user === undefined) {
+        throw unauthorized();
+      }
+      const repo = createDocumentRepo(fastify.db);
+      const document = await repo.get({
+        workspaceId: user.workspaceId,
+        id: request.params.id,
+      });
+      if (document === null) {
+        throw notFound('document');
+      }
+
+      reply.hijack();
+      reply.raw.writeHead(200, {
+        'cache-control': 'no-cache, no-transform',
+        connection: 'keep-alive',
+        'content-type': 'text/event-stream; charset=utf-8',
+      });
+      reply.raw.write(': connected\n\n');
+
+      const unsubscribe = fastify.documentEvents.subscribe(document.id, (event) => {
+        const payload = DocumentBuildEventSchema.parse(event);
+        reply.raw.write(`data: ${JSON.stringify(payload)}\n\n`);
+      });
+      const heartbeat = globalThis.setInterval(() => {
+        reply.raw.write(': keepalive\n\n');
+      }, 15_000);
+      heartbeat.unref?.();
+
+      const cleanup = (): void => {
+        globalThis.clearInterval(heartbeat);
+        unsubscribe();
+        reply.raw.off('close', cleanup);
+        reply.raw.off('error', cleanup);
+      };
+
+      reply.raw.on('close', cleanup);
+      reply.raw.on('error', cleanup);
+      return reply;
+    },
+  );
+
   fastify.post(
     '/documents/:id/build',
     {
@@ -377,27 +470,94 @@ export const documentsRoutes: FastifyPluginAsyncZod = async (fastify) => {
       if (document === null) {
         throw notFound('document');
       }
+      fastify.documentEvents.publish({
+        type: 'documents.build.running',
+        payload: {
+          documentId: document.id,
+        },
+      });
+      let build;
+      try {
+        build = await executeDocument(document.tsSource);
+      } catch (error) {
+        if (error instanceof RuntimeBuildError) {
+          const diagnostics = serializeRuntimeDiagnostics(error.diagnostics);
+          fastify.documentEvents.publish({
+            type: 'documents.build.failed',
+            payload: {
+              documentId: document.id,
+              message: error.message,
+              diagnostics,
+            },
+          });
+          throw buildFailed(error.message, 422, {
+            diagnostics,
+          } satisfies BuildDocumentFailureDetails);
+        }
+        fastify.documentEvents.publish({
+          type: 'documents.build.failed',
+          payload: {
+            documentId: document.id,
+            message: error instanceof Error ? error.message : String(error),
+            diagnostics: [],
+          },
+        });
+        throw buildFailed(error instanceof Error ? error.message : String(error));
+      }
+      const key = `builds/${document.id}/${ulid()}.json`;
+      await fastify.storage.putObject(key, JSON.stringify(build, null, 2), 'application/json');
+      const presigned = await fastify.storage.presignGet(key);
+      const response = serializeBuildResponse(
+        document.id,
+        key,
+        presigned.url,
+        presigned.expiresAt.toISOString(),
+        build,
+      );
+      fastify.documentEvents.publish({
+        type: 'documents.build.ready',
+        payload: response,
+      });
+      return response;
+    },
+  );
+
+  fastify.get(
+    '/documents/:id/export/stl',
+    {
+      schema: {
+        params: DocumentIdParams,
+      },
+      preHandler: fastify.requireAuth,
+    },
+    async (request, reply) => {
+      const user = request.user;
+      if (user === undefined) {
+        throw unauthorized();
+      }
+      const repo = createDocumentRepo(fastify.db);
+      const document = await repo.get({
+        workspaceId: user.workspaceId,
+        id: request.params.id,
+      });
+      if (document === null) {
+        throw notFound('document');
+      }
       let build;
       try {
         build = await executeDocument(document.tsSource);
       } catch (error) {
         if (error instanceof RuntimeBuildError) {
           throw buildFailed(error.message, 422, {
-            diagnostics: error.diagnostics.map((diagnostic) => ({
-              code: diagnostic.code,
-              message: diagnostic.message,
-              ...(diagnostic.range === undefined ? {} : { range: { ...diagnostic.range } }),
-              ...(diagnostic.path === undefined ? {} : { path: [...diagnostic.path] }),
-              ...(diagnostic.context === undefined ? {} : { context: { ...diagnostic.context } }),
-            })),
+            diagnostics: serializeRuntimeDiagnostics(error.diagnostics),
           } satisfies BuildDocumentFailureDetails);
         }
         throw buildFailed(error instanceof Error ? error.message : String(error));
       }
-      const key = `builds/${document.id}/${ulid()}.json`;
-      await fastify.storage.putObject(key, JSON.stringify(build, null, 2), 'application/json');
-      const presigned = await fastify.storage.presignGet(key);
-      return serializeBuildResponse(document.id, key, presigned.url, presigned.expiresAt.toISOString(), build);
+      const stl = exportBuildResultAsStl(build);
+      reply.header('content-type', 'model/stl');
+      reply.header('content-disposition', `attachment; filename="${document.name}.stl"`);
+      return Buffer.from(stl);
     },
   );
 };

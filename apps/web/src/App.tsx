@@ -9,6 +9,7 @@
 import { Navigate, RouterProvider, createBrowserRouter } from 'react-router';
 
 import { RequireAuth } from './auth/RequireAuth.js';
+import { HandbookRoute } from './routes/handbook.js';
 import { LoginRoute } from './routes/login.js';
 import { ProjectDetailRoute } from './routes/projects/detail.js';
 import { DocumentHostRoute } from './routes/projects/document.js';
@@ -22,6 +23,14 @@ const router = createBrowserRouter([
     children: [
       { index: true, element: <Navigate to="/projects" replace /> },
       { path: 'login', Component: LoginRoute },
+      {
+        path: 'handbook/:kind/:slug',
+        element: (
+          <RequireAuth>
+            <HandbookRoute />
+          </RequireAuth>
+        ),
+      },
       {
         path: 'projects',
         element: (

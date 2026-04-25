@@ -13,6 +13,20 @@ export interface BoxInput {
   readonly height: number;
 }
 
+export type SketchPlane = 'xy' | 'yz' | 'xz';
+
+export type PadDirection = 'up' | 'down' | 'symmetric';
+
+export interface RectanglePadInput {
+  readonly plane: SketchPlane;
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+  readonly length: number;
+  readonly direction: PadDirection;
+}
+
 /** Axis-aligned bounding box. */
 export interface BoundingBox {
   readonly min: readonly [number, number, number];

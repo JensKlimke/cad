@@ -25,7 +25,8 @@
     "lint": "eslint ."
   },
   "dependencies": {
-    "@cad/expr": "workspace:*"
+    "@cad/expr": "workspace:*",
+    "@cad/sketch": "workspace:*"
   },
   "devDependencies": {
     "@cad/config": "workspace:*",

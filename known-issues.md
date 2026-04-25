@@ -178,3 +178,14 @@ The lcov report in `coverage/lcov.info` contains the correct per-file data, so t
 **Root cause:** Upstream dependency still ranges on a pre-11 glob. Not under our control.
 
 **Workaround:** None. The deprecated version still works; the warning is purely informational. Revisit during the next major dependency audit pass.
+
+## [P3] `@esbuild-kit/*` deprecation warnings during install — Install tooling
+
+**Observed:** 2026-04-21
+**Where:** `pnpm install`
+**Affects:** Install output noise only; no functional impact observed
+
+**Symptom:** pnpm prints deprecated subdependency warnings for `@esbuild-kit/core-utils@3.3.2` and `@esbuild-kit/esm-loader@2.6.5`.
+
+**Root cause:** Transitive dependency chain still includes the archived `@esbuild-kit/*` packages. Exact parent package remains to be investigated.
+**Workaround:** None currently. The install succeeds; revisit during the next dependency audit pass and replace the upstream dependency once the direct parent is identified.

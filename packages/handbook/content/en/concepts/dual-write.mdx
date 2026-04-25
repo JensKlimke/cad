@@ -1,0 +1,22 @@
+---
+title: Dual-write authoring
+summary: UI edits and source edits operate on the same canonical document source.
+tags:
+  - concepts
+  - authoring
+---
+
+# Dual-write authoring
+
+The feature tree, inspector, and editor all operate on the same document source.
+
+## Flow
+
+1. source parses into `DocumentAST`
+2. UI edits apply codemods to that AST
+3. the printer emits updated TypeScript
+4. the runtime builds from the printed source
+
+## Invalid source
+
+When the source becomes invalid, the workspace keeps the last valid AST visible until the source is fixed.

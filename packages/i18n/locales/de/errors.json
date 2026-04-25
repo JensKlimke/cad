@@ -4,6 +4,7 @@
   "auth.session_revoked": "Ihre Sitzung wurde abgemeldet. Bitte melden Sie sich erneut an.",
   "documents.not_found": "Dokument nicht gefunden.",
   "generic": "Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut.",
+  "handbook_pages.not_found": "Handbuchseite nicht gefunden.",
   "network.timeout": "Die Anfrage hat das Zeitlimit überschritten. Bitte erneut versuchen.",
   "network.unreachable": "Server nicht erreichbar. Bitte überprüfen Sie Ihre Verbindung.",
   "projects.not_found": "Projekt nicht gefunden.",

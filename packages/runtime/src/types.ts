@@ -1,5 +1,5 @@
 import type { ParameterEvaluationResult, Quantity } from '@cad/expr';
-import type { Feature } from '@cad/sdk';
+import type { RectangleSketchConstraints, RectangleSketchGeometry, SketchConstraintStatus, SketchPlane } from '@cad/sketch';
 
 export interface RuntimeOptions {
   readonly timeoutMs?: number;
@@ -17,12 +17,38 @@ export interface RuntimeDiagnostic {
   readonly context?: Readonly<Record<string, string | number | boolean>>;
 }
 
-export interface RuntimeFeatureResult {
+export interface RuntimePadFeatureResult {
   readonly id: string;
-  readonly kind: Feature['kind'];
+  readonly kind: 'pad';
   readonly inputHash: string;
   readonly cached: boolean;
+  readonly pad: {
+    readonly sketch: string;
+    readonly length: number;
+    readonly direction: 'up' | 'down' | 'symmetric';
+  };
 }
+
+export interface RuntimeSketchFeatureResult {
+  readonly id: string;
+  readonly kind: 'sketch';
+  readonly inputHash: string;
+  readonly cached: boolean;
+  readonly sketch: {
+    readonly plane: SketchPlane;
+    readonly svg: string;
+    readonly geometry: RectangleSketchGeometry;
+    readonly constraints: RectangleSketchConstraints;
+    readonly dimensions: {
+      readonly width: number;
+      readonly height: number;
+    };
+    readonly status: SketchConstraintStatus;
+    readonly diagnostics: readonly string[];
+  };
+}
+
+export type RuntimeFeatureResult = RuntimePadFeatureResult | RuntimeSketchFeatureResult;
 
 export interface JsonTessellation {
   readonly positions: readonly number[];
@@ -44,7 +70,7 @@ export interface RuntimeBuildResult {
   readonly parameters: ParameterEvaluationResult['values'];
   readonly parameterOrder: readonly string[];
   readonly features: readonly RuntimeFeatureResult[];
-  readonly tessellation: JsonTessellation;
+  readonly tessellation: JsonTessellation | null;
 }
 
 export interface WorkerSuccessMessage {

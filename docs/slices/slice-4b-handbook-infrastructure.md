@@ -7,6 +7,12 @@
 
 Ship the handbook as a **first-class feature**, not as documentation. Build the `@cad/handbook` package, the in-app MDX viewer, the CLI `cad docs` command, and — most importantly — turn on the CI gate that will block every future PR adding a user-visible SDK op without a handbook page. The handbook must be programmatically queryable so Slice 14's MCP server can expose it to AI agents.
 
+## Current implementation notes
+
+- `@cad/handbook` is the canonical source of truth for handbook content and lookup.
+- The web viewer reads handbook content through authenticated `/handbook/*` server routes.
+- Contextual `?` links are wired into the Slice 4 feature tree and inspector.
+
 ## Definition of Done
 
 - `@cad/handbook` package builds an MDX content tree, validates frontmatter with Zod, and emits a MiniSearch index

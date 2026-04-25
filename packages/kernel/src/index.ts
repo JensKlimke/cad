@@ -9,9 +9,18 @@ export { initOCCT, getOccVersion } from './occt.js';
 export type { InitOCCTOptions } from './occt.js';
 
 export { createBox } from './tessellate.js';
+export { createPadFromRectangleSketch, tessellationToStl } from './tessellate.js';
 
 export { tessellationHash } from './hash.js';
 
 export { KERNEL_VERSION, OCCT_PACKAGE_VERSION } from './version.js';
 
-export type { BoundingBox, BoxInput, TessellationMetadata, TessellationResult } from './types.js';
+export type {
+  BoundingBox,
+  BoxInput,
+  PadDirection,
+  RectanglePadInput,
+  SketchPlane,
+  TessellationMetadata,
+  TessellationResult,
+} from './types.js';

@@ -1,0 +1,16 @@
+{
+  "actions.back": "Zurück",
+  "actions.permalink": "Permalink",
+  "copy.success": "Code wurde in die Zwischenablage kopiert.",
+  "error.body": "Die Handbuchseite konnte nicht geladen werden. Versuchen Sie es erneut oder kehren Sie zum Workspace zurück.",
+  "error.title": "Handbuch nicht verfügbar",
+  "loading.body": "Handbuchinhalt und lokalisierte Inhaltsübersicht werden geladen.",
+  "loading.title": "Handbuch wird geladen",
+  "page.eyebrow": "Handbuch",
+  "page.fallback_body": "Diese Seite wird derzeit auf Englisch angezeigt, weil noch keine lokalisierte Version ausgeliefert wurde.",
+  "page.fallback_title": "Aus dem Englischen übernommen",
+  "page.kind": "Bereich",
+  "page.locale": "Inhaltssprache",
+  "toc.eyebrow": "Navigation",
+  "toc.title": "Auf dieser Seite"
+}

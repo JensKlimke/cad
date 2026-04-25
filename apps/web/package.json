@@ -18,9 +18,12 @@
     "lint": "eslint ."
   },
   "dependencies": {
+    "@cad/authoring": "workspace:*",
     "@cad/i18n": "workspace:*",
     "@cad/kernel": "workspace:*",
     "@cad/protocol": "workspace:*",
+    "@cad/sdk": "workspace:*",
+    "@cad/sketch": "workspace:*",
     "@codemirror/commands": "^6.9.1",
     "@codemirror/lang-javascript": "^6.2.4",
     "@codemirror/language": "^6.11.3",
@@ -30,6 +33,8 @@
     "@codemirror/view": "^6.38.6",
     "@lezer/highlight": "^1.2.3",
     "@tanstack/react-query": "^5.99.0",
+    "monaco-editor": "^0.55.1",
+    "@salusoft89/planegcs": "^1.1.7",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "react-router": "^7.14.1",

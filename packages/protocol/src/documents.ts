@@ -111,11 +111,79 @@ export type ResolvedParameter = z.infer<typeof ResolvedParameterSchema>;
 
 export const RuntimeFeatureResultSchema = z.object({
   id: z.string(),
-  kind: z.enum(['pad', 'sketch']),
+  kind: z.literal('pad'),
   inputHash: z.string().length(64),
   cached: z.boolean(),
+  pad: z.object({
+    sketch: z.string(),
+    length: z.number().finite(),
+    direction: z.enum(['up', 'down', 'symmetric']),
+  }),
 });
-export type RuntimeFeatureResult = z.infer<typeof RuntimeFeatureResultSchema>;
+export const RuntimeSketchFeatureResultSchema = z.object({
+  id: z.string(),
+  kind: z.literal('sketch'),
+  inputHash: z.string().length(64),
+  cached: z.boolean(),
+  sketch: z.object({
+    plane: z.enum(['xy', 'yz', 'xz']),
+    svg: z.string(),
+    geometry: z.object({
+      kind: z.literal('rectangle'),
+      x: z.number().finite(),
+      y: z.number().finite(),
+      width: z.number().finite(),
+      height: z.number().finite(),
+    }),
+    constraints: z.object({
+      kind: z.literal('rectangle'),
+      anchor: z.literal('origin'),
+      width: z.discriminatedUnion('kind', [
+        z.object({
+          kind: z.literal('literal'),
+          value: z.number().finite(),
+          unit: z.literal('mm'),
+        }),
+        z.object({
+          kind: z.literal('reference'),
+          name: z.string(),
+        }),
+        z.object({
+          kind: z.literal('expression'),
+          source: z.string(),
+          unit: z.literal('mm'),
+        }),
+      ]),
+      height: z.discriminatedUnion('kind', [
+        z.object({
+          kind: z.literal('literal'),
+          value: z.number().finite(),
+          unit: z.literal('mm'),
+        }),
+        z.object({
+          kind: z.literal('reference'),
+          name: z.string(),
+        }),
+        z.object({
+          kind: z.literal('expression'),
+          source: z.string(),
+          unit: z.literal('mm'),
+        }),
+      ]),
+    }),
+    dimensions: z.object({
+      width: z.number().finite(),
+      height: z.number().finite(),
+    }),
+    status: z.enum(['under_constrained', 'fully_constrained', 'over_constrained']),
+    diagnostics: z.array(z.string()),
+  }),
+});
+export const RuntimeFeatureResultUnionSchema = z.discriminatedUnion('kind', [
+  RuntimeFeatureResultSchema,
+  RuntimeSketchFeatureResultSchema,
+]);
+export type RuntimeFeatureResult = z.infer<typeof RuntimeFeatureResultUnionSchema>;
 
 export const JsonTessellationSchema = z.object({
   positions: z.array(z.number().finite()),
@@ -142,11 +210,42 @@ export const BuildDocumentResponseSchema = z.object({
     documentHash: z.string().length(64),
     parameterOrder: z.array(z.string()),
     parameters: z.record(z.string(), ResolvedParameterSchema),
-    features: z.array(RuntimeFeatureResultSchema),
-    tessellation: JsonTessellationSchema,
+    features: z.array(RuntimeFeatureResultUnionSchema),
+    tessellation: JsonTessellationSchema.nullable(),
   }),
 });
 export type BuildDocumentResponse = z.infer<typeof BuildDocumentResponseSchema>;
+
+export const DocumentBuildRunningEventSchema = z.object({
+  type: z.literal('documents.build.running'),
+  payload: z.object({
+    documentId: UlidSchema,
+  }),
+});
+export type DocumentBuildRunningEvent = z.infer<typeof DocumentBuildRunningEventSchema>;
+
+export const DocumentBuildReadyEventSchema = z.object({
+  type: z.literal('documents.build.ready'),
+  payload: BuildDocumentResponseSchema,
+});
+export type DocumentBuildReadyEvent = z.infer<typeof DocumentBuildReadyEventSchema>;
+
+export const DocumentBuildFailedEventSchema = z.object({
+  type: z.literal('documents.build.failed'),
+  payload: z.object({
+    documentId: UlidSchema,
+    message: z.string(),
+    diagnostics: z.array(RuntimeDiagnosticSchema),
+  }),
+});
+export type DocumentBuildFailedEvent = z.infer<typeof DocumentBuildFailedEventSchema>;
+
+export const DocumentBuildEventSchema = z.discriminatedUnion('type', [
+  DocumentBuildRunningEventSchema,
+  DocumentBuildReadyEventSchema,
+  DocumentBuildFailedEventSchema,
+]);
+export type DocumentBuildEvent = z.infer<typeof DocumentBuildEventSchema>;
 
 export const BuildDocumentFailureDetailsSchema = z.object({
   diagnostics: z.array(RuntimeDiagnosticSchema),

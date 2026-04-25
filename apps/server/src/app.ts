@@ -33,6 +33,7 @@ import { statusCodeFor, toErrorEnvelope } from './errors.js';
 import authPlugin from './plugins/auth.js';
 import configPlugin from './plugins/config.js';
 import dbPlugin from './plugins/db.js';
+import documentEventsPlugin from './plugins/document-events.js';
 import i18nPlugin from './plugins/i18n.js';
 import observabilityPlugin from './plugins/observability.js';
 import openapiPlugin from './plugins/openapi.js';
@@ -40,6 +41,7 @@ import securityPlugin from './plugins/security.js';
 import storagePlugin from './plugins/storage.js';
 import { authRoutes } from './routes/auth/index.js';
 import { documentsRoutes } from './routes/documents/index.js';
+import { handbookRoutes } from './routes/handbook/index.js';
 import { healthRoute } from './routes/health.js';
 import { projectsRoutes } from './routes/projects/index.js';
 import { seedOnFirstBoot } from './services/seeder.js';
@@ -89,6 +91,7 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   await app.register(cookie, { secret: options.env.COOKIE_SECRET });
   await app.register(i18nPlugin);
   await app.register(dbPlugin, { env: options.env });
+  await app.register(documentEventsPlugin);
   await app.register(storagePlugin, { env: options.env });
   await app.register(authPlugin, { env: options.env });
   await app.register(openapiPlugin);
@@ -102,6 +105,7 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
 
   await app.register(healthRoute);
   await app.register(authRoutes);
+  await app.register(handbookRoutes);
   await app.register(projectsRoutes);
   await app.register(documentsRoutes);
 

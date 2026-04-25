@@ -1,7 +1,7 @@
 /**
  * Security middleware: helmet, CORS, rate limit, sensible.
  *
- * Slice 1 baselines: 100 req/min per IP, strict CORS allowlist
+ * Slice 1 baselines: configurable req/min per IP, strict CORS allowlist
  * sourced from `env.CORS_ORIGINS`, helmet defaults, and Fastify
  * Sensible's HTTP error helpers.
  *
@@ -31,8 +31,8 @@ const securityPlugin: FastifyPluginAsync<SecurityPluginOptions> = async (fastify
     credentials: true,
   });
   await fastify.register(rateLimit, {
-    max: 100,
-    timeWindow: '1 minute',
+    max: options.env.RATE_LIMIT_MAX,
+    timeWindow: options.env.RATE_LIMIT_TIME_WINDOW_SECONDS * 1000,
   });
   await fastify.register(sensible);
 };

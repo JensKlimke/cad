@@ -1,0 +1,36 @@
+---
+title: Body
+summary: Define the ordered feature list that produces the document result.
+tags:
+  - sdk
+  - body
+sdkOpId: body
+---
+
+# Body
+
+`body()` wraps the ordered feature list that the runtime evaluates.
+
+## Ordering
+
+Features run in source order. Reordering features changes the resulting model and can change downstream references.
+
+## Example
+
+```ts
+body([
+  sketch({
+    id: 'sketch_1',
+    plane: 'xy',
+    svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="-20 -20 120 90" data-cad-plane="xy" data-cad-kind="rectangle">  <rect x="0" y="0" width="80" height="50" fill="none" stroke="currentColor" stroke-width="1" /></svg>',
+    constraints: {
+      kind: 'rectangle',
+      anchor: 'origin',
+      width: { kind: 'literal', value: 80, unit: 'mm' },
+      height: { kind: 'literal', value: 50, unit: 'mm' },
+    },
+  }),
+  sketch({ id: 'sketch_1', plane: 'xy', svg, constraints }),
+  pad({ id: 'pad_1', sketch: feature('sketch_1'), length: 30, direction: 'up' }),
+]);
+```

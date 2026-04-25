@@ -1,89 +1,78 @@
-/**
- * Handbook CI gate.
- *
- * Slice 0's handbook-as-a-feature infrastructure stub. Full enforcement lands
- * in Slice 4b when `packages/handbook` and `packages/sdk` exist and expose:
- *
- * - `packages/sdk/src/ops.ts` — canonical list of SDK op ids
- * - `packages/handbook/content/features/<op-id>.mdx` — one file per op
- *
- * This script walks those two lists and fails if any SDK op is missing its
- * handbook page. Slice 0 has zero SDK ops (the authoring layer lands in
- * Slice 2), so the check trivially passes — the script's purpose in Slice 0
- * is to be wired into `pnpm lint` so the CI gate cannot regress once real
- * content starts landing.
- *
- * Per the project plan:
- *
- * > From Slice 5 onward, every slice that ships a user-visible feature must
- * > land handbook entries in the same PR. Enforced by a CI check that fails
- * > if new SDK ops lack corresponding handbook pages.
- */
-
-import { existsSync } from 'node:fs';
+import { readFile, readdir } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-interface SdkOpRegistry {
-  readonly ops: readonly string[];
-}
+import matter from 'gray-matter';
+
+import { HandbookFrontmatterSchema } from '../packages/handbook/src/index.js';
+import { docMetadata } from '../packages/sdk/src/ops.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(HERE, '..');
-const SDK_OPS_MODULE = path.join(REPO_ROOT, 'packages', 'sdk', 'src', 'ops.ts');
-const HANDBOOK_FEATURES_DIR = path.join(REPO_ROOT, 'packages', 'handbook', 'content', 'features');
-
-async function loadSdkOps(): Promise<readonly string[]> {
-  if (!existsSync(SDK_OPS_MODULE)) {
-    // Slice 0: no SDK yet, nothing to lint. This is the expected path until
-    // Slice 2 lands `packages/sdk`.
-    return [];
-  }
-  const moduleUrl = `file://${SDK_OPS_MODULE}`;
-  const registry = (await import(moduleUrl)) as SdkOpRegistry;
-  if (!Array.isArray(registry.ops)) {
-    throw new TypeError(
-      `lint-handbook: ${SDK_OPS_MODULE} must export an \`ops\` array — got ${typeof registry.ops}`,
-    );
-  }
-  return registry.ops;
-}
-
-function findMissingPages(opIds: readonly string[]): readonly string[] {
-  const missing: string[] = [];
-  for (const opId of opIds) {
-    const page = path.join(HANDBOOK_FEATURES_DIR, `${opId}.mdx`);
-    if (!existsSync(page)) {
-      missing.push(opId);
-    }
-  }
-  return missing;
-}
+const CONTENT_ROOT = path.join(REPO_ROOT, 'packages', 'handbook', 'content');
 
 async function main(): Promise<void> {
-  const opIds = await loadSdkOps();
-  if (opIds.length === 0) {
-    process.stdout.write('lint-handbook: no SDK ops registered yet — skipping (Slice 0 stub).\n');
+  const failures: string[] = [];
+  await validateLocaleContent('en', failures);
+  await validateLocaleContent('de', failures);
+
+  for (const entry of Object.values(docMetadata)) {
+    const englishPagePath = path.join(
+      REPO_ROOT,
+      'packages',
+      'handbook',
+      'content',
+      'en',
+      entry.handbookPath.replace('/handbook/', ''),
+    ) + '.mdx';
+
+    try {
+      const raw = await readFile(englishPagePath, 'utf8');
+      const frontmatter = HandbookFrontmatterSchema.parse(matter(raw).data);
+      if (frontmatter.sdkOpId !== entry.id) {
+        failures.push(`${entry.id}: expected sdkOpId "${entry.id}" in ${englishPagePath}`);
+      }
+    } catch (error) {
+      failures.push(
+        `${entry.id}: missing or invalid English handbook page at ${englishPagePath} (${error instanceof Error ? error.message : String(error)})`,
+      );
+    }
+  }
+
+  if (failures.length > 0) {
+    process.stderr.write(`lint-handbook: FAIL\n${failures.map((failure) => `  - ${failure}`).join('\n')}\n`);
+    process.exitCode = 1;
     return;
   }
 
-  const missing = findMissingPages(opIds);
-  if (missing.length === 0) {
-    process.stdout.write(
-      `lint-handbook: OK — ${opIds.length} SDK op(s) all have handbook pages.\n`,
-    );
-    return;
-  }
+  process.stdout.write(`lint-handbook: OK — ${Object.keys(docMetadata).length} SDK op(s) and handbook pages validated.\n`);
+}
 
-  process.stderr.write(
-    `lint-handbook: FAIL — ${missing.length} SDK op(s) are missing handbook pages:\n`,
-  );
-  for (const opId of missing) {
-    process.stderr.write(
-      `  - ${opId} (expected at packages/handbook/content/features/${opId}.mdx)\n`,
-    );
+async function validateLocaleContent(locale: 'en' | 'de', failures: string[]): Promise<void> {
+  const localeRoot = path.join(CONTENT_ROOT, locale);
+  for (const kind of await safeReadDir(localeRoot)) {
+    const kindRoot = path.join(localeRoot, kind);
+    const stats = await safeReadDir(kindRoot);
+    for (const entry of stats.filter((name) => name.endsWith('.mdx'))) {
+      const filePath = path.join(kindRoot, entry);
+      try {
+        HandbookFrontmatterSchema.parse(matter(await readFile(filePath, 'utf8')).data);
+      } catch (error) {
+        failures.push(`${locale}/${kind}/${entry}: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
   }
-  process.exitCode = 1;
+}
+
+async function safeReadDir(directoryPath: string): Promise<readonly string[]> {
+  try {
+    return await readdir(directoryPath);
+  } catch (error) {
+    if (typeof error === 'object' && error !== null && 'code' in error && error.code === 'ENOENT') {
+      return [];
+    }
+    throw error;
+  }
 }
 
 await main();

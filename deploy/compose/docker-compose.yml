@@ -93,6 +93,8 @@ services:
       PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:5173}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173}
       LOG_LEVEL: ${SERVER_LOG_LEVEL:-info}
+      RATE_LIMIT_MAX: ${RATE_LIMIT_MAX:-100}
+      RATE_LIMIT_TIME_WINDOW_SECONDS: ${RATE_LIMIT_TIME_WINDOW_SECONDS:-60}
       DATABASE_URL: postgresql://${POSTGRES_USER:-cad}:${POSTGRES_PASSWORD:?required}@postgres:5432/${POSTGRES_DB:-cad}
       MINIO_ENDPOINT: http://minio:9000
       MINIO_REGION: us-east-1

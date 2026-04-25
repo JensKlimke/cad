@@ -65,7 +65,7 @@ function readLocaleCookie(): string | undefined {
   return match?.[1];
 }
 
-function buildUrl(path: string, query?: Record<string, string | number | undefined>): string {
+export function buildApiUrl(path: string, query?: Record<string, string | number | undefined>): string {
   const base = BASE_URL.endsWith('/') ? BASE_URL.slice(0, -1) : BASE_URL;
   const rel = path.startsWith('/') ? path : `/${path}`;
   if (query === undefined) {
@@ -100,7 +100,7 @@ export async function apiFetch<TResponse extends z.ZodType>(
     headers['Accept-Language'] = locale;
   }
 
-  const response = await fetch(buildUrl(path, options.query), {
+  const response = await fetch(buildApiUrl(path, options.query), {
     method: options.method ?? 'GET',
     credentials: 'include',
     headers,

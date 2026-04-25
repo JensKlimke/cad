@@ -955,6 +955,15 @@ dialog {
   align-items: start;
 }
 
+.document-workspace-grid--slice4 {
+  grid-template-columns: minmax(18rem, 0.72fr) minmax(0, 1.18fr) minmax(23rem, 0.92fr);
+}
+
+.document-workspace-sidebar {
+  display: grid;
+  gap: 0.8rem;
+}
+
 .workspace-panel--documents,
 .workspace-panel--viewport,
 .workspace-panel--editor {
@@ -1076,28 +1085,25 @@ dialog {
   border: 1px solid rgba(160, 196, 255, 0.14);
   border-radius: 1rem;
   background: rgba(4, 12, 22, 0.96);
-}
-
-.document-editor .cm-editor {
   min-height: 29rem;
 }
 
-.document-editor .cm-scroller {
-  overscroll-behavior: contain;
+.document-editor .monaco-editor,
+.document-editor .overflow-guard {
+  min-height: 29rem;
 }
 
-.document-editor .cm-focused {
-  box-shadow: inset 0 0 0 1px rgba(148, 197, 255, 0.14);
+.document-editor .monaco-editor {
+  padding-top: 0.15rem;
 }
 
-.document-editor .cm-gutterElement {
-  padding: 0 0.7rem;
+.document-editor .inputarea {
+  outline: none;
 }
 
-.document-editor .cm-tooltip-lint ul {
-  margin: 0;
-  padding: 0.35rem 0.5rem;
-  list-style: none;
+.monaco-diagnostic-range-active {
+  background: rgba(254, 202, 202, 0.18);
+  border-bottom: 1px solid rgba(254, 202, 202, 0.7);
 }
 
 .document-note {
@@ -1111,6 +1117,144 @@ dialog {
 .document-note__title {
   margin: 0;
   font-weight: 700;
+}
+
+.authoring-tree__section + .authoring-tree__section {
+  margin-top: 1rem;
+}
+
+.authoring-tree__section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.65rem;
+}
+
+.authoring-tree__header-actions {
+  display: inline-flex;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+
+.authoring-tree__section-title {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.authoring-tree__list {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.authoring-tree__item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.authoring-tree__node {
+  display: grid;
+  gap: 0.18rem;
+  width: 100%;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid rgba(160, 196, 255, 0.12);
+  border-radius: 0.9rem;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--app-text);
+  text-align: left;
+}
+
+.authoring-tree__node:hover {
+  border-color: var(--app-border-strong);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.authoring-tree__node--active {
+  border-color: rgba(124, 224, 195, 0.45);
+  background: rgba(124, 224, 195, 0.08);
+}
+
+.authoring-tree__node-label {
+  font-weight: 700;
+}
+
+.authoring-tree__node-meta {
+  color: var(--app-text-muted);
+  font-size: 0.8rem;
+  text-transform: capitalize;
+}
+
+.authoring-tree__controls {
+  display: inline-flex;
+  gap: 0.25rem;
+}
+
+.authoring-tree__action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid rgba(160, 196, 255, 0.12);
+  border-radius: 0.7rem;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--app-text);
+}
+
+.authoring-tree__action:disabled {
+  opacity: 0.45;
+}
+
+.workspace-panel--tree,
+.workspace-panel--inspector {
+  min-height: 12rem;
+}
+
+.workspace-panel__header--compact {
+  margin-bottom: 0.75rem;
+}
+
+.inspector-form {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.inspector-form__group {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.inspector-form__field,
+.inspector-form__fieldset {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.inspector-form__field span,
+.inspector-form__fieldset legend {
+  color: var(--app-text-muted);
+  font-size: 0.82rem;
+}
+
+.inspector-form__field input,
+.inspector-form__field select {
+  width: 100%;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid rgba(160, 196, 255, 0.14);
+  border-radius: 0.85rem;
+  background: rgba(6, 16, 28, 0.92);
+  color: var(--app-text);
+}
+
+.inspector-form__fieldset {
+  padding: 0.8rem;
+  border: 1px solid rgba(160, 196, 255, 0.12);
+  border-radius: 0.95rem;
 }
 
 .document-note__body {
@@ -1196,6 +1340,164 @@ dialog {
 .viewport-frame canvas,
 .viewport-frame > div {
   display: block;
+}
+
+.cad-viewport {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  min-height: 30rem;
+  background:
+    radial-gradient(circle at top, rgba(87, 143, 255, 0.16), transparent 42%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.025), transparent 28%),
+    rgba(5, 10, 18, 0.98);
+}
+
+.cad-viewport__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 0.6rem;
+  padding: 0.7rem 0.8rem;
+  border-bottom: 1px solid rgba(160, 196, 255, 0.1);
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.cad-viewport__group,
+.cad-viewport__select {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.cad-viewport__group-label {
+  color: rgba(232, 242, 255, 0.62);
+  font-size: 0.73rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.cad-viewport__segmented {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.2rem;
+  border: 1px solid rgba(160, 196, 255, 0.14);
+  border-radius: 0.8rem;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.cad-viewport__toggle,
+.cad-viewport__select select {
+  min-height: 2rem;
+  padding: 0.42rem 0.7rem;
+  border: 1px solid transparent;
+  border-radius: 0.65rem;
+  background: transparent;
+  color: #e7f0ff;
+  font: inherit;
+}
+
+.cad-viewport__toggle {
+  cursor: pointer;
+}
+
+.cad-viewport__toggle:hover,
+.cad-viewport__select select:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.cad-viewport__toggle--active {
+  border-color: rgba(124, 224, 195, 0.2);
+  background: rgba(124, 224, 195, 0.13);
+  color: #c9ffee;
+}
+
+.cad-viewport__select select {
+  min-width: 10.25rem;
+  border-color: rgba(160, 196, 255, 0.14);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.cad-viewport__canvas-shell {
+  position: relative;
+  min-height: 22rem;
+}
+
+.cad-viewport__canvas {
+  width: 100%;
+  height: 100%;
+  min-height: 22rem;
+  display: block;
+  touch-action: none;
+  cursor: grab;
+}
+
+.cad-viewport[data-selection-filter='vertex'] .cad-viewport__canvas {
+  cursor: crosshair;
+}
+
+.cad-viewport__canvas:active {
+  cursor: grabbing;
+}
+
+.cad-viewport__overlay {
+  position: absolute;
+  top: 0.75rem;
+  display: grid;
+  gap: 0.45rem;
+  pointer-events: none;
+}
+
+.cad-viewport__overlay--left {
+  left: 0.75rem;
+  max-width: min(22rem, calc(100% - 2rem));
+}
+
+.cad-viewport__overlay--right {
+  right: 0.75rem;
+  max-width: min(18rem, calc(100% - 2rem));
+}
+
+.cad-viewport__note,
+.cad-viewport__hint {
+  margin: 0;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid rgba(160, 196, 255, 0.14);
+  border-radius: 0.8rem;
+  background: rgba(2, 8, 16, 0.72);
+  backdrop-filter: blur(10px);
+  color: #dce9ff;
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.cad-viewport__note--danger {
+  border-color: rgba(255, 138, 138, 0.22);
+  color: #ffc4c4;
+}
+
+.cad-viewport__statusbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
+  padding: 0.7rem 0.8rem 0.8rem;
+  border-top: 1px solid rgba(160, 196, 255, 0.1);
+  background: rgba(255, 255, 255, 0.022);
+}
+
+.cad-viewport__status-item {
+  display: inline-flex;
+  gap: 0.4rem;
+  align-items: baseline;
+  color: #d6e6ff;
+  font-size: 0.8rem;
+}
+
+.cad-viewport__status-item strong {
+  color: rgba(232, 242, 255, 0.62);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .workspace-dialog {
@@ -1287,6 +1589,10 @@ dialog {
     grid-template-columns: 1fr;
   }
 
+  .document-workspace-sidebar {
+    order: 2;
+  }
+
   .app-shell__footer-actions {
     width: 100%;
     justify-content: space-between;
@@ -1306,6 +1612,16 @@ dialog {
 
   .diagnostics-panel__header {
     flex-direction: column;
+  }
+
+  .cad-viewport__toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .cad-viewport__select select {
+    min-width: 0;
+    width: 100%;
   }
 }
 
@@ -1348,5 +1664,164 @@ dialog {
 
   .document-row__action {
     grid-column: auto;
+  }
+}
+
+.inspector-form__label-with-help {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.handbook-panel {
+  gap: 1.25rem;
+}
+
+.handbook-content {
+  color: var(--workspace-text, #dbeafe);
+  line-height: 1.7;
+}
+
+.handbook-content h1,
+.handbook-content h2,
+.handbook-content h3 {
+  color: #f8fafc;
+  margin: 1.35rem 0 0.5rem;
+}
+
+.handbook-content p,
+.handbook-content ul,
+.handbook-content ol {
+  margin: 0 0 0.9rem;
+}
+
+.handbook-content code {
+  font-family: 'IBM Plex Mono', 'SFMono-Regular', monospace;
+}
+
+.handbook-content pre {
+  margin: 0;
+  overflow: auto;
+  padding: 1rem;
+  border-radius: 0 0 1rem 1rem;
+  background: #08121f;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+}
+
+.handbook-code-block {
+  margin: 1rem 0;
+}
+
+.handbook-code-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-bottom: none;
+  border-radius: 1rem 1rem 0 0;
+  background: rgba(15, 23, 42, 0.92);
+}
+
+.handbook-copy-button {
+  border: 1px solid rgba(125, 211, 252, 0.35);
+  border-radius: 999px;
+  padding: 0.2rem 0.6rem;
+  background: transparent;
+  color: #dbeafe;
+  cursor: pointer;
+}
+
+.handbook-toc {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.handbook-toc__item a {
+  color: #bfdbfe;
+  text-decoration: none;
+}
+
+.handbook-toc__item--depth-3,
+.handbook-toc__item--depth-4,
+.handbook-toc__item--depth-5,
+.handbook-toc__item--depth-6 {
+  padding-left: 0.9rem;
+}
+.document-workspace-grid--sketch-mode .workspace-panel--editor {
+  opacity: 0.58;
+}
+
+.workspace-panel--muted {
+  transition: opacity 160ms ease;
+}
+
+.sketch-mode {
+  display: grid;
+  gap: 1rem;
+  min-height: 100%;
+}
+
+.sketch-mode__header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.sketch-mode__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.8fr) minmax(16rem, 0.9fr);
+  gap: 1rem;
+}
+
+.sketch-mode__canvas-card {
+  min-height: 30rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 1rem;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at top, rgba(124, 211, 255, 0.08), transparent 45%),
+    linear-gradient(180deg, rgba(8, 11, 20, 0.96), rgba(11, 15, 28, 0.98));
+}
+
+.sketch-mode__canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.sketch-mode__sidebar {
+  display: grid;
+  gap: 0.9rem;
+  align-content: start;
+}
+
+.sketch-mode__diagnostics {
+  margin: 0;
+  padding-left: 1rem;
+  color: #ffb5b5;
+}
+
+.sketch-mode__source {
+  margin: 0;
+  padding: 0.75rem;
+  overflow: auto;
+  border-radius: 0.85rem;
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.75rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+@media (max-width: 1100px) {
+  .sketch-mode__grid {
+    grid-template-columns: 1fr;
   }
 }

@@ -1,0 +1,16 @@
+{
+  "actions.back": "Back",
+  "actions.permalink": "Permalink",
+  "copy.success": "Code copied to the clipboard.",
+  "error.body": "The handbook page could not be loaded. Try again or return to the workspace.",
+  "error.title": "Handbook unavailable",
+  "loading.body": "Loading handbook content and the localized table of contents.",
+  "loading.title": "Loading handbook",
+  "page.eyebrow": "Handbook",
+  "page.fallback_body": "This page is currently shown in English because a localized version has not shipped yet.",
+  "page.fallback_title": "Translated from English",
+  "page.kind": "Section",
+  "page.locale": "Content locale",
+  "toc.eyebrow": "Navigation",
+  "toc.title": "On this page"
+}

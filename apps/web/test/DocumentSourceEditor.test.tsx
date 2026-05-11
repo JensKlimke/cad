@@ -25,7 +25,12 @@ const monacoState = vi.hoisted(() => {
 
   let contentListener: (() => void) | null = null;
   let selectionListener:
-    | ((event: { readonly selection: { getStartPosition(): { lineNumber: number; column: number }; getEndPosition(): { lineNumber: number; column: number } } }) => void)
+    | ((event: {
+        readonly selection: {
+          getStartPosition(): { lineNumber: number; column: number };
+          getEndPosition(): { lineNumber: number; column: number };
+        };
+      }) => void)
     | null = null;
 
   const model = {

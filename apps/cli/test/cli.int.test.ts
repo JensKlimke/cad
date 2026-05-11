@@ -38,7 +38,11 @@ function runCad(args: readonly string[]): string {
   });
 }
 
-function runCadDetailed(args: readonly string[]): { readonly status: number | null; readonly stdout: string; readonly stderr: string } {
+function runCadDetailed(args: readonly string[]): {
+  readonly status: number | null;
+  readonly stdout: string;
+  readonly stderr: string;
+} {
   requireBuild();
   const result = spawnSync(process.execPath, [BIN_PATH, ...args], {
     encoding: 'utf8',

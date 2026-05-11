@@ -76,7 +76,9 @@ export async function executeInSandbox(request: WorkerRequest): Promise<WorkerMe
     script.runInContext(context, { timeout: request.options.timeoutMs });
     const exported = (module.exports.default ?? module.exports) as DocumentDefinition | undefined;
     if (exported === undefined || typeof exported !== 'object' || exported.kind !== 'document') {
-      throw new Error('Document module must export a default document definition created by defineDocument(...).');
+      throw new Error(
+        'Document module must export a default document definition created by defineDocument(...).',
+      );
     }
     const result = await buildDocument(exported);
     return { ok: true, result };
@@ -94,7 +96,13 @@ export async function executeInSandbox(request: WorkerRequest): Promise<WorkerMe
 }
 
 export function assertSourceSafe(source: string): void {
-  const file = ts.createSourceFile('document.ts', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+  const file = ts.createSourceFile(
+    'document.ts',
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TS,
+  );
   for (const statement of file.statements) {
     if (ts.isImportDeclaration(statement)) {
       const specifier = statement.moduleSpecifier.getText(file).replaceAll(/['"]/gu, '');
@@ -126,15 +134,19 @@ export function assertSourceSafe(source: string): void {
     ) {
       continue;
     }
-    throw runtimeError('runtime.unsupported_toplevel', 'Unsupported top-level statement in document.ts sandbox.', [
-      {
-        code: 'runtime.unsupported_toplevel',
-        message: 'Unsupported top-level statement in document.ts sandbox.',
-        range: {
-          start: statement.getStart(file),
-          end: statement.getEnd(),
+    throw runtimeError(
+      'runtime.unsupported_toplevel',
+      'Unsupported top-level statement in document.ts sandbox.',
+      [
+        {
+          code: 'runtime.unsupported_toplevel',
+          message: 'Unsupported top-level statement in document.ts sandbox.',
+          range: {
+            start: statement.getStart(file),
+            end: statement.getEnd(),
+          },
         },
-      },
-    ]);
+      ],
+    );
   }
 }

@@ -28,7 +28,10 @@ export interface SketchExpressionValue {
   readonly unit: 'mm';
 }
 
-export type SketchConstraintValue = SketchLiteralValue | SketchReferenceValue | SketchExpressionValue;
+export type SketchConstraintValue =
+  | SketchLiteralValue
+  | SketchReferenceValue
+  | SketchExpressionValue;
 
 export interface RectangleSketchGeometry {
   readonly kind: 'rectangle';
@@ -108,7 +111,9 @@ export function parseSketchSvg(svg: string): RectangleSketchGeometry {
   };
 }
 
-export function createRectangleSketch(input?: Partial<RectangleSketchDefinition>): RectangleSketchDefinition {
+export function createRectangleSketch(
+  input?: Partial<RectangleSketchDefinition>,
+): RectangleSketchDefinition {
   const geometry: RectangleSketchGeometry = {
     kind: 'rectangle',
     x: input?.geometry?.x ?? 0,
@@ -142,7 +147,12 @@ export async function solveRectangleSketch(
     options.parameters,
     definition.geometry.height,
   );
-  if (!Number.isFinite(requestedWidth) || !Number.isFinite(requestedHeight) || requestedWidth <= 0 || requestedHeight <= 0) {
+  if (
+    !Number.isFinite(requestedWidth) ||
+    !Number.isFinite(requestedHeight) ||
+    requestedWidth <= 0 ||
+    requestedHeight <= 0
+  ) {
     return {
       plane: definition.plane,
       svg: serializeSketchSvg(definition),
@@ -161,11 +171,19 @@ export async function solveRectangleSketch(
   const gcs = new module.GcsSystem();
   const wrapper = new GcsWrapper(gcs);
   try {
-    wrapper.push_primitives_and_params(createRectanglePrimitives(definition.geometry, requestedWidth, requestedHeight));
+    wrapper.push_primitives_and_params(
+      createRectanglePrimitives(definition.geometry, requestedWidth, requestedHeight),
+    );
     const solveStatus = wrapper.solve();
     wrapper.apply_solution();
     const diagnostics = collectDiagnostics(wrapper, solveStatus);
-    const status = classifySolveStatus(wrapper, solveStatus, definition.geometry, requestedWidth, requestedHeight);
+    const status = classifySolveStatus(
+      wrapper,
+      solveStatus,
+      definition.geometry,
+      requestedWidth,
+      requestedHeight,
+    );
     const geometry = readSolvedGeometry(wrapper);
     const normalized: RectangleSketchDefinition = {
       plane: definition.plane,
@@ -204,7 +222,9 @@ export function resolveSketchValue(
         return fallback;
       }
       if (resolved.unit !== 'mm') {
-        throw new Error(`resolveSketchValue: expected millimetre parameter "${value.name}", received ${resolved.unit}.`);
+        throw new Error(
+          `resolveSketchValue: expected millimetre parameter "${value.name}", received ${resolved.unit}.`,
+        );
       }
       return resolved.value;
     }
@@ -212,11 +232,16 @@ export function resolveSketchValue(
       const evaluated = evaluateExpression(
         value.source,
         Object.fromEntries(
-          Object.entries(parameters ?? {}).map(([name, quantity]) => [name, { value: quantity.value, unit: quantity.unit }]),
+          Object.entries(parameters ?? {}).map(([name, quantity]) => [
+            name,
+            { value: quantity.value, unit: quantity.unit },
+          ]),
         ),
       );
       if (evaluated.unit !== 'mm') {
-        throw new Error(`resolveSketchValue: expected millimetre expression result, received ${evaluated.unit}.`);
+        throw new Error(
+          `resolveSketchValue: expected millimetre expression result, received ${evaluated.unit}.`,
+        );
       }
       return evaluated.value;
     }
@@ -260,8 +285,20 @@ function createRectanglePrimitives(
     { id: 'c4', type: 'vertical_l', l_id: 'l4' } satisfies Constraint,
     { id: 'c5', type: 'coordinate_x', p_id: 'p1', x } satisfies Constraint,
     { id: 'c6', type: 'coordinate_y', p_id: 'p1', y } satisfies Constraint,
-    { id: 'c7', type: 'p2p_distance', p1_id: 'p1', p2_id: 'p2', distance: width } satisfies Constraint,
-    { id: 'c8', type: 'p2p_distance', p1_id: 'p2', p2_id: 'p3', distance: height } satisfies Constraint,
+    {
+      id: 'c7',
+      type: 'p2p_distance',
+      p1_id: 'p1',
+      p2_id: 'p2',
+      distance: width,
+    } satisfies Constraint,
+    {
+      id: 'c8',
+      type: 'p2p_distance',
+      p1_id: 'p2',
+      p2_id: 'p3',
+      distance: height,
+    } satisfies Constraint,
   ];
   return primitives;
 }
@@ -289,11 +326,11 @@ function classifySolveStatus(
   height: number,
 ): SketchConstraintStatus {
   if (
-    wrapper.has_gcs_conflicting_constraints()
-    || wrapper.has_gcs_redundant_constraints()
-    || wrapper.has_gcs_partially_redundant_constraints()
-    || solveStatus === SolveStatus.Failed
-    || solveStatus === SolveStatus.SuccessfulSolutionInvalid
+    wrapper.has_gcs_conflicting_constraints() ||
+    wrapper.has_gcs_redundant_constraints() ||
+    wrapper.has_gcs_partially_redundant_constraints() ||
+    solveStatus === SolveStatus.Failed ||
+    solveStatus === SolveStatus.SuccessfulSolutionInvalid
   ) {
     return 'over_constrained';
   }

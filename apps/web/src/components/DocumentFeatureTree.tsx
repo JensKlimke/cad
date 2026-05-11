@@ -28,18 +28,27 @@ export function DocumentFeatureTree({
   onMoveFeature,
 }: DocumentFeatureTreeProps): React.JSX.Element {
   const features = ast?.features ?? [];
-  const nestedSketchIds = new Set(features.filter((feature) => feature.kind === 'pad').map((feature) => feature.sketch));
+  const nestedSketchIds = new Set(
+    features.filter((feature) => feature.kind === 'pad').map((feature) => feature.sketch),
+  );
   return (
-    <section className="workspace-panel workspace-panel--tree" data-testid="document-authoring-tree">
-        <div className="workspace-panel__header workspace-panel__header--compact">
-          <div>
-            <p className="workspace-panel__eyebrow">Dual-write</p>
-            <h2 className="workspace-panel__title">Feature tree</h2>
-          </div>
-          <Link className="workspace-inline-link" to="/handbook/concepts/dual-write" data-testid="authoring-tree-help">
-            ?
-          </Link>
+    <section
+      className="workspace-panel workspace-panel--tree"
+      data-testid="document-authoring-tree"
+    >
+      <div className="workspace-panel__header workspace-panel__header--compact">
+        <div>
+          <p className="workspace-panel__eyebrow">Dual-write</p>
+          <h2 className="workspace-panel__title">Feature tree</h2>
         </div>
+        <Link
+          className="workspace-inline-link"
+          to="/handbook/concepts/dual-write"
+          data-testid="authoring-tree-help"
+        >
+          ?
+        </Link>
+      </div>
 
       <div className="authoring-tree__section">
         <div className="authoring-tree__section-header">
@@ -66,7 +75,11 @@ export function DocumentFeatureTree({
               <li key={parameter.id} className="authoring-tree__item">
                 <button
                   type="button"
-                  className={active ? 'authoring-tree__node authoring-tree__node--active' : 'authoring-tree__node'}
+                  className={
+                    active
+                      ? 'authoring-tree__node authoring-tree__node--active'
+                      : 'authoring-tree__node'
+                  }
                   onClick={() => onSelect({ kind: 'parameter', id: parameter.id })}
                   data-testid={`authoring-parameter-${parameter.id}`}
                 >
@@ -126,14 +139,21 @@ export function DocumentFeatureTree({
             const active = selection?.kind === 'feature' && selection.id === feature.id;
             const disableMoveUp = index === 0 || !sourceIsValid;
             const disableMoveDown = index === (ast?.features.length ?? 1) - 1 || !sourceIsValid;
-            const nestedSketch = feature.kind === 'pad'
-              ? features.find((candidate) => candidate.kind === 'sketch' && candidate.id === feature.sketch) ?? null
-              : null;
+            const nestedSketch =
+              feature.kind === 'pad'
+                ? (features.find(
+                    (candidate) => candidate.kind === 'sketch' && candidate.id === feature.sketch,
+                  ) ?? null)
+                : null;
             return (
               <li key={feature.id} className="authoring-tree__item">
                 <button
                   type="button"
-                  className={active ? 'authoring-tree__node authoring-tree__node--active' : 'authoring-tree__node'}
+                  className={
+                    active
+                      ? 'authoring-tree__node authoring-tree__node--active'
+                      : 'authoring-tree__node'
+                  }
                   onClick={() => onSelect({ kind: 'feature', id: feature.id })}
                   data-testid={`authoring-feature-${feature.id}`}
                 >

@@ -44,7 +44,11 @@ describe('parseEnv — happy path', () => {
   });
 
   it('coerces rate limit settings from strings', () => {
-    const env = parseEnv({ ...baseValid, RATE_LIMIT_MAX: '1000', RATE_LIMIT_TIME_WINDOW_SECONDS: '300' });
+    const env = parseEnv({
+      ...baseValid,
+      RATE_LIMIT_MAX: '1000',
+      RATE_LIMIT_TIME_WINDOW_SECONDS: '300',
+    });
     expect(env.RATE_LIMIT_MAX).toBe(1000);
     expect(env.RATE_LIMIT_TIME_WINDOW_SECONDS).toBe(300);
   });

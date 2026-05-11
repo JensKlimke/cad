@@ -146,7 +146,8 @@ export function createScene(
   geometry.computeBoundingBox();
   geometry.computeBoundingSphere();
 
-  const bounds = geometry.boundingBox ?? new Box3(new Vector3(-10, -10, -10), new Vector3(10, 10, 10));
+  const bounds =
+    geometry.boundingBox ?? new Box3(new Vector3(-10, -10, -10), new Vector3(10, 10, 10));
   const sphere = geometry.boundingSphere ?? new Sphere(new Vector3(), 10);
   const center = bounds.getCenter(new Vector3());
   const radius = Math.max(sphere.radius, 1);
@@ -156,7 +157,11 @@ export function createScene(
     metalness: 0.08,
     roughness: 0.4,
   });
-  const edgeMaterial = new LineBasicMaterial({ color: EDGE_COLOR, transparent: true, opacity: 0.92 });
+  const edgeMaterial = new LineBasicMaterial({
+    color: EDGE_COLOR,
+    transparent: true,
+    opacity: 0.92,
+  });
   const vertexMaterial = new PointsMaterial({
     color: VERTEX_COLOR,
     size: POINT_SIZE,
@@ -200,29 +205,29 @@ export function createScene(
   let projection: ProjectionMode = options.projection ?? 'perspective';
   let selectionFilter: SelectionFilter = options.selectionFilter ?? 'face';
   let visualStyle: VisualStyle = options.visualStyle ?? 'shaded-edges';
-  let cameraState = options.camera ?? buildNamedViewCameraState('iso', {
-    yaw: Math.PI / 4,
-    pitch: 0.55,
-    distance: Math.max(radius * 3.5, 70),
-    zoom: 1,
-    target: [0, 0, 0],
-  });
+  let cameraState =
+    options.camera ??
+    buildNamedViewCameraState('iso', {
+      yaw: Math.PI / 4,
+      pitch: 0.55,
+      distance: Math.max(radius * 3.5, 70),
+      zoom: 1,
+      target: [0, 0, 0],
+    });
   let hovered: ViewportSelection | null = null;
   let selected: ViewportSelection | null = null;
   let disposed = false;
-  let interaction:
-    | {
-        readonly mode: InteractionMode;
-        readonly pointerId: number;
-        readonly startClientX: number;
-        readonly startClientY: number;
-        readonly startYaw: number;
-        readonly startPitch: number;
-        readonly startCameraTarget: readonly [number, number, number];
-        readonly startDistance: number;
-        readonly panAnchor: Vector3 | null;
-      }
-    | null = null;
+  let interaction: {
+    readonly mode: InteractionMode;
+    readonly pointerId: number;
+    readonly startClientX: number;
+    readonly startClientY: number;
+    readonly startYaw: number;
+    readonly startPitch: number;
+    readonly startCameraTarget: readonly [number, number, number];
+    readonly startDistance: number;
+    readonly panAnchor: Vector3 | null;
+  } | null = null;
 
   function getActiveCamera(): PerspectiveCamera | OrthographicCamera {
     return projection === 'perspective' ? perspectiveCamera : orthographicCamera;
@@ -261,7 +266,10 @@ export function createScene(
     perspectiveCamera.updateProjectionMatrix();
 
     const orthoDistance = Math.max(cameraState.distance, MIN_DISTANCE);
-    const halfHeight = Math.max((orthoDistance / Math.max(cameraState.zoom, 0.2)) * 0.38, radius * 0.35);
+    const halfHeight = Math.max(
+      (orthoDistance / Math.max(cameraState.zoom, 0.2)) * 0.38,
+      radius * 0.35,
+    );
     const halfWidth = halfHeight * aspect;
     orthographicCamera.left = -halfWidth;
     orthographicCamera.right = halfWidth;
@@ -306,7 +314,14 @@ export function createScene(
       resolveSelectionColor(selected, hovered, 'edge', EDGE_SELECTED, EDGE_HOVER, EDGE_COLOR),
     );
     vertexMaterial.color.setHex(
-      resolveSelectionColor(selected, hovered, 'vertex', VERTEX_SELECTED, VERTEX_HOVER, VERTEX_COLOR),
+      resolveSelectionColor(
+        selected,
+        hovered,
+        'vertex',
+        VERTEX_SELECTED,
+        VERTEX_HOVER,
+        VERTEX_COLOR,
+      ),
     );
     vertexMaterial.size = selected?.kind === 'vertex' ? POINT_SIZE + 1.6 : POINT_SIZE;
     points.visible = visualStyle === 'wireframe' || selectionFilter === 'vertex';
@@ -488,7 +503,9 @@ export function createScene(
 
       const distanceScale = Math.max(interaction.startDistance, radius) * PAN_SPEED;
       cameraRight.setFromMatrixColumn(getActiveCamera().matrixWorld, 0).normalize();
-      cameraUp.crossVectors(cameraRight, getActiveCamera().getWorldDirection(tempVector).normalize()).normalize();
+      cameraUp
+        .crossVectors(cameraRight, getActiveCamera().getWorldDirection(tempVector).normalize())
+        .normalize();
       const deltaX = (event.clientX - interaction.startClientX) * distanceScale;
       const deltaY = (event.clientY - interaction.startClientY) * distanceScale;
       const origin = new Vector3().fromArray(interaction.startCameraTarget);
@@ -510,8 +527,8 @@ export function createScene(
       return;
     }
     const moved =
-      Math.abs(event.clientX - interaction.startClientX) > CLICK_DRAG_THRESHOLD
-      || Math.abs(event.clientY - interaction.startClientY) > CLICK_DRAG_THRESHOLD;
+      Math.abs(event.clientX - interaction.startClientX) > CLICK_DRAG_THRESHOLD ||
+      Math.abs(event.clientY - interaction.startClientY) > CLICK_DRAG_THRESHOLD;
     interaction = null;
     if (moved) {
       return;
@@ -531,7 +548,9 @@ export function createScene(
   function panCameraByScreenDelta(deltaX: number, deltaY: number, speed: number): void {
     const distanceScale = Math.max(cameraState.distance, radius) * speed;
     cameraRight.setFromMatrixColumn(getActiveCamera().matrixWorld, 0).normalize();
-    cameraUp.crossVectors(cameraRight, getActiveCamera().getWorldDirection(tempVector).normalize()).normalize();
+    cameraUp
+      .crossVectors(cameraRight, getActiveCamera().getWorldDirection(tempVector).normalize())
+      .normalize();
     const origin = new Vector3().fromArray(cameraState.target);
     origin.addScaledVector(cameraRight, -deltaX * distanceScale);
     origin.addScaledVector(cameraUp, deltaY * distanceScale);
@@ -556,7 +575,11 @@ export function createScene(
       MIN_DISTANCE,
       MAX_DISTANCE,
     );
-    const nextZoom = MathUtils.clamp(cameraState.zoom * Math.exp(-deltaY * ZOOM_SENSITIVITY), 0.35, 4);
+    const nextZoom = MathUtils.clamp(
+      cameraState.zoom * Math.exp(-deltaY * ZOOM_SENSITIVITY),
+      0.35,
+      4,
+    );
     setCameraState({
       ...cameraState,
       distance: nextDistance,
@@ -634,8 +657,10 @@ export function isTrackpadWheelEvent(event: WheelLikeEvent): boolean {
   const deltaX = Math.abs(normalizeWheelDelta(event.deltaX ?? 0, event.deltaMode));
   const deltaY = Math.abs(normalizeWheelDelta(event.deltaY, event.deltaMode));
   const dominantDelta = Math.max(deltaX, deltaY);
-  return (event.deltaMode ?? DOM_DELTA_PIXEL) === DOM_DELTA_PIXEL
-    && (deltaX > 0 || dominantDelta < TRACKPAD_WHEEL_DELTA_THRESHOLD);
+  return (
+    (event.deltaMode ?? DOM_DELTA_PIXEL) === DOM_DELTA_PIXEL &&
+    (deltaX > 0 || dominantDelta < TRACKPAD_WHEEL_DELTA_THRESHOLD)
+  );
 }
 
 function normalizeWheelDelta(delta: number, deltaMode: number | undefined): number {
@@ -652,10 +677,7 @@ function normalizeWheelDelta(delta: number, deltaMode: number | undefined): numb
   }
 }
 
-function sameSelection(
-  left: ViewportSelection | null,
-  right: ViewportSelection | null,
-): boolean {
+function sameSelection(left: ViewportSelection | null, right: ViewportSelection | null): boolean {
   return left?.kind === right?.kind && left?.index === right?.index;
 }
 

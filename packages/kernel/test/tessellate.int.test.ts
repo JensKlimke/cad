@@ -10,15 +10,26 @@
 
 import { beforeAll, describe, expect, it } from 'vitest';
 
-import { createBox, initOCCT } from '../src/index.js';
+import {
+  createBox,
+  createPadFromRectangleSketch,
+  initOCCT,
+  tessellationToStl,
+} from '../src/index.js';
 
-import type { TessellationResult } from '../src/index.js';
+import type { RectanglePadInput, TessellationResult } from '../src/index.js';
 
 describe('createBox (integration, real OCCT boot)', () => {
   beforeAll(async () => {
     // Boot once for the whole suite so we don't measure WASM init time per case.
     await initOCCT();
   }, 60_000);
+
+  it('reuses the booted OCCT instance', async () => {
+    const first = await initOCCT();
+    const second = await initOCCT();
+    expect(second).toBe(first);
+  });
 
   it('produces a non-empty tessellation for a 10×20×30 box', async () => {
     const result = await createBox({ width: 10, depth: 20, height: 30 });
@@ -85,4 +96,138 @@ describe('createBox (integration, real OCCT boot)', () => {
       `"d4174bb3c736687050746e725868d1a42b5d4f84fa309f2fe3b9da4581d1f143"`,
     );
   }, 30_000);
+});
+
+describe('createPadFromRectangleSketch (integration, real OCCT boot)', () => {
+  beforeAll(async () => {
+    await initOCCT();
+  }, 60_000);
+
+  const baseInput: RectanglePadInput = {
+    plane: 'xy',
+    x: 0,
+    y: 0,
+    width: 10,
+    height: 20,
+    length: 30,
+    direction: 'up',
+  };
+
+  it('extrudes an XY rectangle upward', async () => {
+    const result = await createPadFromRectangleSketch(baseInput);
+    const [minX, minY, minZ] = result.metadata.bbox.min;
+    const [maxX, maxY, maxZ] = result.metadata.bbox.max;
+
+    expect(maxX - minX).toBeCloseTo(10, 3);
+    expect(maxY - minY).toBeCloseTo(20, 3);
+    expect(minZ).toBeCloseTo(0, 3);
+    expect(maxZ).toBeCloseTo(30, 3);
+  }, 30_000);
+
+  it('extrudes a YZ rectangle downward', async () => {
+    const result = await createPadFromRectangleSketch({
+      ...baseInput,
+      plane: 'yz',
+      direction: 'down',
+    });
+    const [minX, minY, minZ] = result.metadata.bbox.min;
+    const [maxX, maxY, maxZ] = result.metadata.bbox.max;
+
+    expect(minX).toBeCloseTo(-30, 3);
+    expect(maxX).toBeCloseTo(0, 3);
+    expect(maxY - minY).toBeCloseTo(10, 3);
+    expect(maxZ - minZ).toBeCloseTo(20, 3);
+  }, 30_000);
+
+  it('centers a symmetric XZ extrusion around the sketch plane', async () => {
+    const result = await createPadFromRectangleSketch({
+      ...baseInput,
+      plane: 'xz',
+      direction: 'symmetric',
+    });
+    const [, minY] = result.metadata.bbox.min;
+    const [, maxY] = result.metadata.bbox.max;
+
+    expect(minY).toBeCloseTo(-15, 3);
+    expect(maxY).toBeCloseTo(15, 3);
+  }, 30_000);
+
+  it('rejects invalid rectangle pad inputs', async () => {
+    await expect(
+      createPadFromRectangleSketch({ ...baseInput, width: 0 } as RectanglePadInput),
+    ).rejects.toThrow();
+    await expect(
+      createPadFromRectangleSketch({
+        ...baseInput,
+        plane: 'bad-plane',
+      } as unknown as RectanglePadInput),
+    ).rejects.toThrow();
+  });
+});
+
+describe('tessellationToStl', () => {
+  it('serializes indexed triangles to binary STL', async () => {
+    const result = await createBox({ width: 1, depth: 1, height: 1 });
+    const stl = tessellationToStl(result);
+    const view = new DataView(stl.buffer, stl.byteOffset, stl.byteLength);
+
+    expect(stl.byteLength).toBe(84 + result.metadata.triangleCount * 50);
+    expect(view.getUint32(80, true)).toBe(result.metadata.triangleCount);
+  }, 30_000);
+
+  it('uses a default normal for degenerate triangles', () => {
+    const stl = tessellationToStl({
+      positions: new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0]),
+      normals: new Float32Array([0, 0, 1, 0, 0, 1, 0, 0, 1]),
+      indices: new Uint32Array([0, 1, 2]),
+      metadata: {
+        hash: 'degenerate',
+        triangleCount: 1,
+        vertexCount: 3,
+        bbox: {
+          min: [0, 0, 0],
+          max: [0, 0, 0],
+        },
+      },
+    });
+    const view = new DataView(stl.buffer, stl.byteOffset, stl.byteLength);
+
+    expect(view.getFloat32(84, true)).toBe(0);
+    expect(view.getFloat32(88, true)).toBe(0);
+    expect(view.getFloat32(92, true)).toBe(1);
+  });
+
+  it('treats missing triangle vertices as zeroes when writing STL', () => {
+    const missingVertexStl = tessellationToStl({
+      positions: new Float32Array([]),
+      normals: new Float32Array([]),
+      indices: new Uint32Array([1, 2, 3]),
+      metadata: {
+        hash: 'missing-vertices',
+        triangleCount: 1,
+        vertexCount: 0,
+        bbox: {
+          min: [0, 0, 0],
+          max: [0, 0, 0],
+        },
+      },
+    });
+    const missingIndexStl = tessellationToStl({
+      positions: new Float32Array([]),
+      normals: new Float32Array([]),
+      indices: new Uint32Array([0]),
+      metadata: {
+        hash: 'missing-indices',
+        triangleCount: 1,
+        vertexCount: 0,
+        bbox: {
+          min: [0, 0, 0],
+          max: [0, 0, 0],
+        },
+      },
+    });
+
+    expect(missingVertexStl).toHaveLength(134);
+    expect(missingIndexStl).toHaveLength(100);
+  });
 });

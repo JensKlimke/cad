@@ -115,7 +115,12 @@ export function LoginForm({ onSuccess }: LoginFormProps): React.JSX.Element {
             {error}
           </div>
         )}
-        <button type="submit" disabled={submitting} className="auth-form__submit" data-testid="login-submit">
+        <button
+          type="submit"
+          disabled={submitting}
+          className="auth-form__submit"
+          data-testid="login-submit"
+        >
           {submitting ? t('login.submitting') : t('login.submit')}
         </button>
       </form>

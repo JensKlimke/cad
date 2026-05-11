@@ -65,7 +65,10 @@ function readLocaleCookie(): string | undefined {
   return match?.[1];
 }
 
-export function buildApiUrl(path: string, query?: Record<string, string | number | undefined>): string {
+export function buildApiUrl(
+  path: string,
+  query?: Record<string, string | number | undefined>,
+): string {
   const base = BASE_URL.endsWith('/') ? BASE_URL.slice(0, -1) : BASE_URL;
   const rel = path.startsWith('/') ? path : `/${path}`;
   if (query === undefined) {

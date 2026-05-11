@@ -172,8 +172,7 @@ dialog {
   border: 1px solid var(--app-border);
   border-radius: 1.75rem;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02)),
-    var(--app-panel);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02)), var(--app-panel);
   backdrop-filter: blur(22px);
   box-shadow: var(--app-shadow);
 }
@@ -303,7 +302,12 @@ dialog {
 .auth-card__skeleton {
   height: 3.25rem;
   border-radius: 1rem;
-  background: linear-gradient(90deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.05));
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.05),
+    rgba(255, 255, 255, 0.12),
+    rgba(255, 255, 255, 0.05)
+  );
   background-size: 200% 100%;
   animation: auth-shimmer 1.4s linear infinite;
 }
@@ -1348,8 +1352,7 @@ dialog {
   min-height: 30rem;
   background:
     radial-gradient(circle at top, rgba(87, 143, 255, 0.16), transparent 42%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.025), transparent 28%),
-    rgba(5, 10, 18, 0.98);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.025), transparent 28%), rgba(5, 10, 18, 0.98);
 }
 
 .cad-viewport__toolbar {

@@ -14,7 +14,11 @@ export class RuntimeBuildError extends Error {
   }
 }
 
-export function runtimeError(code: string, message: string, diagnostics: readonly RuntimeDiagnostic[] = []): RuntimeBuildError {
+export function runtimeError(
+  code: string,
+  message: string,
+  diagnostics: readonly RuntimeDiagnostic[] = [],
+): RuntimeBuildError {
   return new RuntimeBuildError(code, message, diagnostics);
 }
 
@@ -23,7 +27,9 @@ export function normalizeRuntimeError(error: unknown): RuntimeBuildError {
     return error;
   }
   if (error instanceof ExprError) {
-    return runtimeError(error.diagnostic.code, error.message, [exprDiagnosticToRuntimeDiagnostic(error.diagnostic)]);
+    return runtimeError(error.diagnostic.code, error.message, [
+      exprDiagnosticToRuntimeDiagnostic(error.diagnostic),
+    ]);
   }
   if (error instanceof Error) {
     return runtimeError('runtime.execution_failed', error.message, [

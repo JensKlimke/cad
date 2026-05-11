@@ -28,7 +28,9 @@ export function SketchModePanel({
   const [drag, setDrag] = useState<DragState | null>(null);
   const [draftGeometry, setDraftGeometry] = useState(feature.geometry);
   const [draftConstraints, setDraftConstraints] = useState(feature.constraints);
-  const [status, setStatus] = useState(feature.constraints.kind === 'rectangle' ? 'fully_constrained' : 'under_constrained');
+  const [status, setStatus] = useState(
+    feature.constraints.kind === 'rectangle' ? 'fully_constrained' : 'under_constrained',
+  );
   const [diagnostics, setDiagnostics] = useState<readonly string[]>([]);
   const [committing, setCommitting] = useState(false);
   const [previewGeometry, setPreviewGeometry] = useState(feature.geometry);
@@ -61,21 +63,23 @@ export function SketchModePanel({
       {
         parameters: resolvedParameterMap,
       },
-    ).then((artifact) => {
-      if (cancelled) {
-        return;
-      }
-      setStatus(artifact.status);
-      setDiagnostics(artifact.diagnostics);
-      setPreviewGeometry(artifact.geometry);
-    }).catch((error: unknown) => {
-      if (cancelled) {
-        return;
-      }
-      setStatus('over_constrained');
-      setDiagnostics([error instanceof Error ? error.message : String(error)]);
-      setPreviewGeometry(draftGeometry);
-    });
+    )
+      .then((artifact) => {
+        if (cancelled) {
+          return;
+        }
+        setStatus(artifact.status);
+        setDiagnostics(artifact.diagnostics);
+        setPreviewGeometry(artifact.geometry);
+      })
+      .catch((error: unknown) => {
+        if (cancelled) {
+          return;
+        }
+        setStatus('over_constrained');
+        setDiagnostics([error instanceof Error ? error.message : String(error)]);
+        setPreviewGeometry(draftGeometry);
+      });
     return () => {
       cancelled = true;
     };
@@ -93,7 +97,10 @@ export function SketchModePanel({
     };
   }, [committing, drag, onExit]);
 
-  async function commitRectangle(nextGeometry: SketchFeatureAst['geometry'], nextConstraints: SketchFeatureAst['constraints']): Promise<void> {
+  async function commitRectangle(
+    nextGeometry: SketchFeatureAst['geometry'],
+    nextConstraints: SketchFeatureAst['constraints'],
+  ): Promise<void> {
     setCommitting(true);
     try {
       const solved = await solveRectangleSketch(
@@ -187,7 +194,10 @@ export function SketchModePanel({
         <div>
           <p className="workspace-panel__eyebrow">Sketch mode</p>
           <h2 className="workspace-panel__title">Rectangle sketch on {feature.plane}</h2>
-          <p className="workspace-inline-note">Drag in the canvas to redraw the rectangle. Width and height bindings persist into source.</p>
+          <p className="workspace-inline-note">
+            Drag in the canvas to redraw the rectangle. Width and height bindings persist into
+            source.
+          </p>
         </div>
         <div className="workspace-inline-actions">
           <button
@@ -224,7 +234,12 @@ export function SketchModePanel({
           >
             <defs>
               <pattern id="sketch-grid" width="10" height="10" patternUnits="userSpaceOnUse">
-                <path d="M 10 0 L 0 0 0 10" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="0.5" />
+                <path
+                  d="M 10 0 L 0 0 0 10"
+                  fill="none"
+                  stroke="rgba(255,255,255,0.08)"
+                  strokeWidth="0.5"
+                />
               </pattern>
             </defs>
             <rect x={-400} y={-400} width={800} height={800} fill="url(#sketch-grid)" />
@@ -273,7 +288,13 @@ export function SketchModePanel({
               ))}
             </ul>
           )}
-          <pre className="sketch-mode__source">{serializeSketchSvg({ plane: feature.plane, geometry: previewGeometry, constraints: draftConstraints })}</pre>
+          <pre className="sketch-mode__source">
+            {serializeSketchSvg({
+              plane: feature.plane,
+              geometry: previewGeometry,
+              constraints: draftConstraints,
+            })}
+          </pre>
         </div>
       </div>
     </section>
@@ -382,7 +403,12 @@ function getCanvasPoint(
   };
 }
 
-function toRectangle(startX: number, startY: number, endX: number, endY: number): SketchFeatureAst['geometry'] {
+function toRectangle(
+  startX: number,
+  startY: number,
+  endX: number,
+  endY: number,
+): SketchFeatureAst['geometry'] {
   const x = Math.min(startX, endX);
   const y = Math.min(startY, endY);
   return {

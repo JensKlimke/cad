@@ -44,11 +44,15 @@ const markdownRenderer = new Marked(
   }),
 );
 
-function loadMarkedTerminal(): (options: { readonly width?: number; readonly reflowText?: boolean }) => MarkedExtension {
+function loadMarkedTerminal(): (options: {
+  readonly width?: number;
+  readonly reflowText?: boolean;
+}) => MarkedExtension {
   const require = createRequire(import.meta.url);
-  return require('marked-terminal').markedTerminal as (
-    options: { readonly width?: number; readonly reflowText?: boolean },
-  ) => MarkedExtension;
+  return require('marked-terminal').markedTerminal as (options: {
+    readonly width?: number;
+    readonly reflowText?: boolean;
+  }) => MarkedExtension;
 }
 
 function printVersion(options: VersionCommandOptions): void {
@@ -133,7 +137,12 @@ export function createProgram(): Command {
           memoryMb: Number(options.memoryMb ?? '128'),
         });
         const stl = exportBuildResultAsStl(result);
-        const outputPath = options.output ?? path.join(path.dirname(sourcePath), `${path.basename(sourcePath, path.extname(sourcePath))}.stl`);
+        const outputPath =
+          options.output ??
+          path.join(
+            path.dirname(sourcePath),
+            `${path.basename(sourcePath, path.extname(sourcePath))}.stl`,
+          );
         await writeFile(outputPath, stl);
         process.stdout.write(`${outputPath}\n`);
       } catch (error) {
@@ -146,10 +155,15 @@ export function createProgram(): Command {
       }
     });
 
-  const docsCommand = program.command('docs').description('Read handbook entries from the terminal');
+  const docsCommand = program
+    .command('docs')
+    .description('Read handbook entries from the terminal');
 
   docsCommand
-    .argument('[args...]', 'Use `list`, `search <query>`, or a handbook path such as /handbook/features/pad')
+    .argument(
+      '[args...]',
+      'Use `list`, `search <query>`, or a handbook path such as /handbook/features/pad',
+    )
     .action(async (args: readonly string[]) => {
       if (args.length === 0 || (args.length === 1 && args[0] === 'list')) {
         const pages = await listTopics({ locale: 'en' });
@@ -165,12 +179,16 @@ export function createProgram(): Command {
           return;
         }
         const pages = await searchHandbook(query, { locale: 'en' });
-        process.stdout.write(`${pages.map((page) => `${page.path} — ${page.summary}`).join('\n')}\n`);
+        process.stdout.write(
+          `${pages.map((page) => `${page.path} — ${page.summary}`).join('\n')}\n`,
+        );
         return;
       }
 
       if (args.length !== 1) {
-        process.stderr.write('cad: docs expects `list`, `search <query>`, or a single handbook path\n');
+        process.stderr.write(
+          'cad: docs expects `list`, `search <query>`, or a single handbook path\n',
+        );
         process.exitCode = 1;
         return;
       }

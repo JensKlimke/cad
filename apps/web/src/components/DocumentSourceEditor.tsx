@@ -15,7 +15,10 @@ interface DocumentSourceEditorProps {
   readonly onChange: (value: string) => void;
   readonly diagnostics: readonly RuntimeDiagnostic[];
   readonly activeDiagnosticIndex: number | null;
-  readonly onSelectionChange?: (selection: { readonly start: number; readonly end: number }) => void;
+  readonly onSelectionChange?: (selection: {
+    readonly start: number;
+    readonly end: number;
+  }) => void;
 }
 
 declare global {
@@ -28,71 +31,79 @@ declare global {
 
 let monacoConfigured = false;
 
-export const DocumentSourceEditor = forwardRef<DocumentSourceEditorHandle, DocumentSourceEditorProps>(
-  function DocumentSourceEditor({ value, onChange, diagnostics, activeDiagnosticIndex, onSelectionChange }, ref) {
-    const hostReference = useRef<HTMLDivElement | null>(null);
-    const editorReference = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
-    const modelReference = useRef<monaco.editor.ITextModel | null>(null);
-    const decorationCollectionReference = useRef<monaco.editor.IEditorDecorationsCollection | null>(null);
-    const changeHandlerReference = useRef(onChange);
-    const selectionHandlerReference = useRef(onSelectionChange);
-    const isApplyingExternalChangeReference = useRef(false);
-    const suppressSelectionEventsReference = useRef(false);
+export const DocumentSourceEditor = forwardRef<
+  DocumentSourceEditorHandle,
+  DocumentSourceEditorProps
+>(function DocumentSourceEditor(
+  { value, onChange, diagnostics, activeDiagnosticIndex, onSelectionChange },
+  ref,
+) {
+  const hostReference = useRef<HTMLDivElement | null>(null);
+  const editorReference = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
+  const modelReference = useRef<monaco.editor.ITextModel | null>(null);
+  const decorationCollectionReference = useRef<monaco.editor.IEditorDecorationsCollection | null>(
+    null,
+  );
+  const changeHandlerReference = useRef(onChange);
+  const selectionHandlerReference = useRef(onSelectionChange);
+  const isApplyingExternalChangeReference = useRef(false);
+  const suppressSelectionEventsReference = useRef(false);
 
-    const normalizedDiagnostics = useMemo(() => diagnostics, [diagnostics]);
+  const normalizedDiagnostics = useMemo(() => diagnostics, [diagnostics]);
 
-    useEffect(() => {
-      changeHandlerReference.current = onChange;
-    }, [onChange]);
+  useEffect(() => {
+    changeHandlerReference.current = onChange;
+  }, [onChange]);
 
-    useEffect(() => {
-      selectionHandlerReference.current = onSelectionChange;
-    }, [onSelectionChange]);
+  useEffect(() => {
+    selectionHandlerReference.current = onSelectionChange;
+  }, [onSelectionChange]);
 
-    useEffect(() => {
-      configureMonaco();
-      const host = hostReference.current;
-      if (host === null || editorReference.current !== null) {
+  useEffect(() => {
+    configureMonaco();
+    const host = hostReference.current;
+    if (host === null || editorReference.current !== null) {
+      return;
+    }
+
+    const model = monaco.editor.createModel(value, 'typescript');
+    modelReference.current = model;
+
+    const editor = monaco.editor.create(host, {
+      model,
+      automaticLayout: true,
+      minimap: { enabled: false },
+      lineNumbers: 'on',
+      glyphMargin: true,
+      roundedSelection: false,
+      scrollBeyondLastLine: false,
+      overviewRulerBorder: false,
+      fontFamily: "'IBM Plex Mono', 'SFMono-Regular', monospace",
+      fontSize: 14,
+      lineHeight: 26,
+      tabSize: 2,
+      insertSpaces: true,
+      wordWrap: 'on',
+      theme: 'cad-dark',
+      renderLineHighlight: 'all',
+      padding: {
+        top: 14,
+        bottom: 18,
+      },
+    });
+    editorReference.current = editor;
+    decorationCollectionReference.current = editor.createDecorationsCollection();
+    installEditorTestHooks(host, editor, model);
+    const inputObserver = observeEditorInput(host);
+
+    const contentChangeDisposable = editor.onDidChangeModelContent(() => {
+      if (isApplyingExternalChangeReference.current) {
         return;
       }
-
-      const model = monaco.editor.createModel(value, 'typescript');
-      modelReference.current = model;
-
-      const editor = monaco.editor.create(host, {
-        model,
-        automaticLayout: true,
-        minimap: { enabled: false },
-        lineNumbers: 'on',
-        glyphMargin: true,
-        roundedSelection: false,
-        scrollBeyondLastLine: false,
-        overviewRulerBorder: false,
-        fontFamily: "'IBM Plex Mono', 'SFMono-Regular', monospace",
-        fontSize: 14,
-        lineHeight: 26,
-        tabSize: 2,
-        insertSpaces: true,
-        wordWrap: 'on',
-        theme: 'cad-dark',
-        renderLineHighlight: 'all',
-        padding: {
-          top: 14,
-          bottom: 18,
-        },
-      });
-      editorReference.current = editor;
-      decorationCollectionReference.current = editor.createDecorationsCollection();
-      installEditorTestHooks(host, editor, model);
-      const inputObserver = observeEditorInput(host);
-
-      const contentChangeDisposable = editor.onDidChangeModelContent(() => {
-        if (isApplyingExternalChangeReference.current) {
-          return;
-        }
-        changeHandlerReference.current(editor.getValue());
-      });
-      const cursorChangeDisposable = editor.onDidChangeCursorSelection((event: monaco.editor.ICursorSelectionChangedEvent) => {
+      changeHandlerReference.current(editor.getValue());
+    });
+    const cursorChangeDisposable = editor.onDidChangeCursorSelection(
+      (event: monaco.editor.ICursorSelectionChangedEvent) => {
         if (isApplyingExternalChangeReference.current || suppressSelectionEventsReference.current) {
           return;
         }
@@ -105,92 +116,117 @@ export const DocumentSourceEditor = forwardRef<DocumentSourceEditorHandle, Docum
           start: activeModel.getOffsetAt(nextSelection.getStartPosition()),
           end: activeModel.getOffsetAt(nextSelection.getEndPosition()),
         });
-      });
+      },
+    );
 
-      return () => {
-        removeEditorTestHooks(host);
-        inputObserver?.disconnect();
-        cursorChangeDisposable.dispose();
-        contentChangeDisposable.dispose();
-        decorationCollectionReference.current?.clear();
-        decorationCollectionReference.current = null;
-        editor.dispose();
-        editorReference.current = null;
-        model.dispose();
-        modelReference.current = null;
-      };
-    }, [value]);
+    return () => {
+      removeEditorTestHooks(host);
+      inputObserver?.disconnect();
+      cursorChangeDisposable.dispose();
+      contentChangeDisposable.dispose();
+      decorationCollectionReference.current?.clear();
+      decorationCollectionReference.current = null;
+      editor.dispose();
+      editorReference.current = null;
+      model.dispose();
+      modelReference.current = null;
+    };
+  }, [value]);
 
-    useEffect(() => {
-      const editor = editorReference.current;
-      const model = modelReference.current;
-      if (editor === null || model === null || model.getValue() === value) {
-        return;
-      }
-      const previousValue = model.getValue();
-      const previousSelection = editor.getSelection();
-      const previousScrollTop = typeof editor.getScrollTop === 'function' ? editor.getScrollTop() : null;
-      const previousScrollLeft = typeof editor.getScrollLeft === 'function' ? editor.getScrollLeft() : null;
-      isApplyingExternalChangeReference.current = true;
-      suppressSelectionEventsReference.current = true;
-      model.setValue(value);
-      if (previousSelection !== null) {
-        const nextSelection = mapSelectionThroughReplacement(previousValue, value, previousSelection, model);
-        editor.setSelection(nextSelection);
-      }
-      if (previousScrollTop !== null && typeof editor.setScrollTop === 'function') {
-        editor.setScrollTop(previousScrollTop);
-      }
-      if (previousScrollLeft !== null && typeof editor.setScrollLeft === 'function') {
-        editor.setScrollLeft(previousScrollLeft);
-      }
-      suppressSelectionEventsReference.current = false;
-      isApplyingExternalChangeReference.current = false;
-    }, [value]);
+  useEffect(() => {
+    const editor = editorReference.current;
+    const model = modelReference.current;
+    if (editor === null || model === null || model.getValue() === value) {
+      return;
+    }
+    const previousValue = model.getValue();
+    const previousSelection = editor.getSelection();
+    const previousScrollTop =
+      typeof editor.getScrollTop === 'function' ? editor.getScrollTop() : null;
+    const previousScrollLeft =
+      typeof editor.getScrollLeft === 'function' ? editor.getScrollLeft() : null;
+    isApplyingExternalChangeReference.current = true;
+    suppressSelectionEventsReference.current = true;
+    model.setValue(value);
+    if (previousSelection !== null) {
+      const nextSelection = mapSelectionThroughReplacement(
+        previousValue,
+        value,
+        previousSelection,
+        model,
+      );
+      editor.setSelection(nextSelection);
+    }
+    if (previousScrollTop !== null && typeof editor.setScrollTop === 'function') {
+      editor.setScrollTop(previousScrollTop);
+    }
+    if (previousScrollLeft !== null && typeof editor.setScrollLeft === 'function') {
+      editor.setScrollLeft(previousScrollLeft);
+    }
+    suppressSelectionEventsReference.current = false;
+    isApplyingExternalChangeReference.current = false;
+  }, [value]);
 
-    useEffect(() => {
-      const model = modelReference.current;
-      if (model === null) {
-        return;
-      }
-      monaco.editor.setModelMarkers(model, 'cad-runtime', normalizedDiagnostics.map((diagnostic) => ({
+  useEffect(() => {
+    const model = modelReference.current;
+    if (model === null) {
+      return;
+    }
+    monaco.editor.setModelMarkers(
+      model,
+      'cad-runtime',
+      normalizedDiagnostics.map((diagnostic) => ({
         severity: monaco.MarkerSeverity.Error,
         message: diagnostic.message,
         code: diagnostic.code,
         startLineNumber: positionForOffset(model, diagnostic.range?.start ?? 0).lineNumber,
         startColumn: positionForOffset(model, diagnostic.range?.start ?? 0).column,
-        endLineNumber: positionForOffset(model, diagnostic.range?.end ?? diagnostic.range?.start ?? 0).lineNumber,
+        endLineNumber: positionForOffset(
+          model,
+          diagnostic.range?.end ?? diagnostic.range?.start ?? 0,
+        ).lineNumber,
         endColumn: normalizeMarkerEnd(model, diagnostic),
-      })));
-    }, [normalizedDiagnostics]);
+      })),
+    );
+  }, [normalizedDiagnostics]);
 
-    useEffect(() => {
-      const editor = editorReference.current;
-      const model = modelReference.current;
-      const collection = decorationCollectionReference.current;
-      if (editor === null || model === null || collection === null) {
-        return;
-      }
-      const activeDiagnostic =
-        activeDiagnosticIndex === null ? null : (diagnostics[activeDiagnosticIndex] ?? null);
-      if (activeDiagnostic?.range === undefined) {
-        collection.set([]);
-        return;
-      }
-      const start = positionForOffset(model, activeDiagnostic.range.start);
-      const end = positionForOffset(model, Math.max(activeDiagnostic.range.end, activeDiagnostic.range.start));
-      collection.set([
-        {
-          range: new monaco.Range(start.lineNumber, start.column, end.lineNumber, normalizeMarkerEnd(model, activeDiagnostic)),
-          options: {
-            className: 'monaco-diagnostic-range-active',
-            isWholeLine: false,
-          },
+  useEffect(() => {
+    const editor = editorReference.current;
+    const model = modelReference.current;
+    const collection = decorationCollectionReference.current;
+    if (editor === null || model === null || collection === null) {
+      return;
+    }
+    const activeDiagnostic =
+      activeDiagnosticIndex === null ? null : (diagnostics[activeDiagnosticIndex] ?? null);
+    if (activeDiagnostic?.range === undefined) {
+      collection.set([]);
+      return;
+    }
+    const start = positionForOffset(model, activeDiagnostic.range.start);
+    const end = positionForOffset(
+      model,
+      Math.max(activeDiagnostic.range.end, activeDiagnostic.range.start),
+    );
+    collection.set([
+      {
+        range: new monaco.Range(
+          start.lineNumber,
+          start.column,
+          end.lineNumber,
+          normalizeMarkerEnd(model, activeDiagnostic),
+        ),
+        options: {
+          className: 'monaco-diagnostic-range-active',
+          isWholeLine: false,
         },
-      ]);
-    }, [activeDiagnosticIndex, diagnostics]);
+      },
+    ]);
+  }, [activeDiagnosticIndex, diagnostics]);
 
-    useImperativeHandle(ref, () => ({
+  useImperativeHandle(
+    ref,
+    () => ({
       focusRange(start, end) {
         const editor = editorReference.current;
         const model = modelReference.current;
@@ -202,7 +238,14 @@ export const DocumentSourceEditor = forwardRef<DocumentSourceEditorHandle, Docum
         const startPosition = positionForOffset(model, safeStart);
         const endPosition = positionForOffset(model, safeEnd);
         suppressSelectionEventsReference.current = true;
-        editor.setSelection(new monaco.Range(startPosition.lineNumber, startPosition.column, endPosition.lineNumber, normalizeEndColumn(model, safeEnd, endPosition)));
+        editor.setSelection(
+          new monaco.Range(
+            startPosition.lineNumber,
+            startPosition.column,
+            endPosition.lineNumber,
+            normalizeEndColumn(model, safeEnd, endPosition),
+          ),
+        );
         editor.revealRangeInCenter(editor.getSelection() ?? new monaco.Range(1, 1, 1, 1));
         editor.focus();
         suppressSelectionEventsReference.current = false;
@@ -217,11 +260,14 @@ export const DocumentSourceEditor = forwardRef<DocumentSourceEditorHandle, Docum
         editor.focus();
         suppressSelectionEventsReference.current = false;
       },
-    }), []);
+    }),
+    [],
+  );
 
-    return <div ref={hostReference} className="document-editor" data-testid="document-source-editor" />;
-  },
-);
+  return (
+    <div ref={hostReference} className="document-editor" data-testid="document-source-editor" />
+  );
+});
 
 DocumentSourceEditor.displayName = 'DocumentSourceEditor';
 
@@ -292,7 +338,10 @@ function tagEditorInput(host: HTMLDivElement): void {
 
 function observeEditorInput(host: HTMLDivElement): MutationObserver | null {
   tagEditorInput(host);
-  if (host.querySelector('textarea.inputarea') !== null || typeof MutationObserver === 'undefined') {
+  if (
+    host.querySelector('textarea.inputarea') !== null ||
+    typeof MutationObserver === 'undefined'
+  ) {
     return null;
   }
   const observer = new MutationObserver(() => {
@@ -337,7 +386,10 @@ function positionForOffset(model: monaco.editor.ITextModel, offset: number): mon
   return model.getPositionAt(clampOffset(offset, model.getValueLength()));
 }
 
-function normalizeMarkerEnd(model: monaco.editor.ITextModel, diagnostic: RuntimeDiagnostic): number {
+function normalizeMarkerEnd(
+  model: monaco.editor.ITextModel,
+  diagnostic: RuntimeDiagnostic,
+): number {
   if (diagnostic.range === undefined) {
     return 1;
   }
@@ -381,7 +433,11 @@ function mapSelectionThroughReplacement(
   );
 }
 
-function mapOffsetThroughReplacement(previousSource: string, nextSource: string, offset: number): number {
+function mapOffsetThroughReplacement(
+  previousSource: string,
+  nextSource: string,
+  offset: number,
+): number {
   const commonPrefixLength = sharedPrefixLength(previousSource, nextSource);
   const commonSuffixLength = sharedSuffixLength(previousSource, nextSource, commonPrefixLength);
   const previousChangedEnd = previousSource.length - commonSuffixLength;
@@ -409,10 +465,7 @@ function sharedSuffixLength(left: string, right: string, prefixLength: number): 
   const rightRemaining = right.length - prefixLength;
   const limit = Math.min(leftRemaining, rightRemaining);
   let index = 0;
-  while (
-    index < limit
-    && left[left.length - 1 - index] === right[right.length - 1 - index]
-  ) {
+  while (index < limit && left[left.length - 1 - index] === right[right.length - 1 - index]) {
     index += 1;
   }
   return index;

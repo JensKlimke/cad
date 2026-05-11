@@ -87,8 +87,16 @@ export type AstNodeSelection =
   | { readonly kind: 'feature'; readonly id: string };
 
 export type AuthoringOp =
-  | { readonly kind: 'parameter.add'; readonly parameter: ParameterAstInput; readonly index?: number }
-  | { readonly kind: 'parameter.update'; readonly id: string; readonly parameter: ParameterAstInput }
+  | {
+      readonly kind: 'parameter.add';
+      readonly parameter: ParameterAstInput;
+      readonly index?: number;
+    }
+  | {
+      readonly kind: 'parameter.update';
+      readonly id: string;
+      readonly parameter: ParameterAstInput;
+    }
   | { readonly kind: 'parameter.remove'; readonly id: string }
   | { readonly kind: 'parameter.rename'; readonly id: string; readonly newName: string }
   | { readonly kind: 'feature.add'; readonly feature: FeatureAstInput; readonly index?: number }

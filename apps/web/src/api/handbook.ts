@@ -31,7 +31,10 @@ export async function fetchHandbookPageByOp(opId: string, locale: string): Promi
   });
 }
 
-export async function searchHandbook(query: string, locale: string): Promise<readonly HandbookPageSummary[]> {
+export async function searchHandbook(
+  query: string,
+  locale: string,
+): Promise<readonly HandbookPageSummary[]> {
   const response = await apiFetch('/handbook/search', {
     schema: HandbookSearchResponseSchema,
     query: { q: query, locale },
@@ -39,7 +42,10 @@ export async function searchHandbook(query: string, locale: string): Promise<rea
   return response.items;
 }
 
-export async function listHandbook(kind: HandbookKind | undefined, locale: string): Promise<readonly HandbookPageSummary[]> {
+export async function listHandbook(
+  kind: HandbookKind | undefined,
+  locale: string,
+): Promise<readonly HandbookPageSummary[]> {
   const response = await apiFetch('/handbook/list', {
     schema: HandbookListResponseSchema,
     query: {

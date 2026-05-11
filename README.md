@@ -64,13 +64,13 @@ After login, create a project, open it, and create a document to enter the CAD w
 
 ## Project docs
 
-| File                                   | Purpose                                                     |
-| -------------------------------------- | ----------------------------------------------------------- |
-| [`PLAN.md`](./PLAN.md)                 | Authoritative roadmap, architecture, and delivery slices    |
-| [`CLAUDE.md`](./CLAUDE.md)             | Working agreements and hard constraints for AI contributors |
-| [`known-issues.md`](./known-issues.md) | Log of open issues discovered during development            |
-| [`docs/testing-strategy.md`](./docs/testing-strategy.md) | Current test pyramid, suite ownership, and CI policy |
-| [`docs/slices/`](./docs/slices/)       | Per-slice acceptance and verification notes                 |
+| File                                                     | Purpose                                                     |
+| -------------------------------------------------------- | ----------------------------------------------------------- |
+| [`PLAN.md`](./PLAN.md)                                   | Authoritative roadmap, architecture, and delivery slices    |
+| [`CLAUDE.md`](./CLAUDE.md)                               | Working agreements and hard constraints for AI contributors |
+| [`known-issues.md`](./known-issues.md)                   | Log of open issues discovered during development            |
+| [`docs/testing-strategy.md`](./docs/testing-strategy.md) | Current test pyramid, suite ownership, and CI policy        |
+| [`docs/slices/`](./docs/slices/)                         | Per-slice acceptance and verification notes                 |
 
 ## License
 

@@ -54,19 +54,28 @@ export function applyAuthoringOp(ast: DocumentAST, op: AuthoringOp): DocumentAST
         parameters: ast.parameters.map((entry) =>
           entry.id === op.id ? { ...entry, name: op.newName } : entry,
         ),
-        features: ast.features.map((feature) => renameFeatureReferences(feature, parameter.name, op.newName)),
+        features: ast.features.map((feature) =>
+          renameFeatureReferences(feature, parameter.name, op.newName),
+        ),
       };
     }
     case 'feature.add': {
       const index = clampIndex(op.index ?? ast.features.length, ast.features.length + 1);
       return {
         ...ast,
-        features: [...ast.features.slice(0, index), normalizeFeatureInput(op.feature), ...ast.features.slice(index)],
+        features: [
+          ...ast.features.slice(0, index),
+          normalizeFeatureInput(op.feature),
+          ...ast.features.slice(index),
+        ],
       };
     }
     case 'feature.update': {
       const previous = ast.features.find((feature) => feature.id === op.id);
-      const nextFeature = previous === undefined ? normalizeFeatureInput(op.feature) : normalizeFeatureInput(op.feature, previous.id);
+      const nextFeature =
+        previous === undefined
+          ? normalizeFeatureInput(op.feature)
+          : normalizeFeatureInput(op.feature, previous.id);
       return {
         ...ast,
         features: ast.features.map((feature) => {
@@ -74,11 +83,11 @@ export function applyAuthoringOp(ast: DocumentAST, op: AuthoringOp): DocumentAST
             return nextFeature;
           }
           if (
-            previous?.kind === 'sketch'
-            && nextFeature.kind === 'sketch'
-            && feature.kind === 'pad'
-            && feature.sketch === previous.id
-            && previous.id !== nextFeature.id
+            previous?.kind === 'sketch' &&
+            nextFeature.kind === 'sketch' &&
+            feature.kind === 'pad' &&
+            feature.sketch === previous.id &&
+            previous.id !== nextFeature.id
           ) {
             return { ...feature, sketch: nextFeature.id };
           }
@@ -89,7 +98,10 @@ export function applyAuthoringOp(ast: DocumentAST, op: AuthoringOp): DocumentAST
     case 'feature.remove': {
       return {
         ...ast,
-        features: ast.features.filter((feature) => feature.id !== op.id && !(feature.kind === 'pad' && feature.sketch === op.id)),
+        features: ast.features.filter(
+          (feature) =>
+            feature.id !== op.id && !(feature.kind === 'pad' && feature.sketch === op.id),
+        ),
       };
     }
     case 'feature.reorder': {
@@ -128,10 +140,7 @@ function normalizeParameterDefinition(
   };
 }
 
-function normalizeFeatureInput(
-  feature: FeatureAstInput,
-  fallbackId?: string,
-): FeatureAst {
+function normalizeFeatureInput(feature: FeatureAstInput, fallbackId?: string): FeatureAst {
   if (feature.kind === 'sketch') {
     return {
       kind: 'sketch',

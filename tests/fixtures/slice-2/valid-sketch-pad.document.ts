@@ -18,6 +18,11 @@ export default defineDocument({
         height: { kind: 'expression', source: 'width + depth', unit: 'mm' },
       },
     }),
-    pad({ id: 'pad_2', sketch: feature('sketch_1'), length: literal(15, 'mm'), direction: 'symmetric' }),
+    pad({
+      id: 'pad_2',
+      sketch: feature('sketch_1'),
+      length: literal(15, 'mm'),
+      direction: 'symmetric',
+    }),
   ]),
 });

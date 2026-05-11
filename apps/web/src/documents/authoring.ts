@@ -45,7 +45,10 @@ export async function applyAuthoringOperation(
   };
 }
 
-export function selectionFromOffset(ast: DocumentAST | null, offset: number): AstNodeSelection | null {
+export function selectionFromOffset(
+  ast: DocumentAST | null,
+  offset: number,
+): AstNodeSelection | null {
   if (ast === null) {
     return null;
   }
@@ -113,27 +116,42 @@ export function defaultSelection(ast: DocumentAST | null): AstNodeSelection | nu
   return null;
 }
 
-export function resolveSelection(ast: DocumentAST | null, selection: AstNodeSelection | null): AstNodeSelection | null {
+export function resolveSelection(
+  ast: DocumentAST | null,
+  selection: AstNodeSelection | null,
+): AstNodeSelection | null {
   if (ast === null) {
     return null;
   }
-  if (selection?.kind === 'feature' && ast.features.some((feature) => feature.id === selection.id)) {
+  if (
+    selection?.kind === 'feature' &&
+    ast.features.some((feature) => feature.id === selection.id)
+  ) {
     return selection;
   }
-  if (selection?.kind === 'parameter' && ast.parameters.some((parameter) => parameter.id === selection.id)) {
+  if (
+    selection?.kind === 'parameter' &&
+    ast.parameters.some((parameter) => parameter.id === selection.id)
+  ) {
     return selection;
   }
   return defaultSelection(ast);
 }
 
-export function findSelectedFeature(ast: DocumentAST | null, selection: AstNodeSelection | null): FeatureAst | null {
+export function findSelectedFeature(
+  ast: DocumentAST | null,
+  selection: AstNodeSelection | null,
+): FeatureAst | null {
   if (ast === null || selection?.kind !== 'feature') {
     return null;
   }
   return ast.features.find((feature) => feature.id === selection.id) ?? null;
 }
 
-export function findSelectedParameter(ast: DocumentAST | null, selection: AstNodeSelection | null): ParameterAst | null {
+export function findSelectedParameter(
+  ast: DocumentAST | null,
+  selection: AstNodeSelection | null,
+): ParameterAst | null {
   if (ast === null || selection?.kind !== 'parameter') {
     return null;
   }

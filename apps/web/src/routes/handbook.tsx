@@ -43,7 +43,10 @@ export function HandbookRoute(): React.JSX.Element {
           <h3 className="workspace-panel__title workspace-panel__title--small">{t('toc.title')}</h3>
           <ol className="handbook-toc">
             {page.headings.map((heading) => (
-              <li key={heading.slug} className={`handbook-toc__item handbook-toc__item--depth-${String(heading.depth)}`}>
+              <li
+                key={heading.slug}
+                className={`handbook-toc__item handbook-toc__item--depth-${String(heading.depth)}`}
+              >
                 <a href={`#${heading.slug}`}>{heading.title}</a>
               </li>
             ))}

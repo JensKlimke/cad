@@ -135,15 +135,15 @@ Rules:
 
 Each customer-facing area has a primary owner and a browser confirmation:
 
-| Feature area | Primary confidence layer | Browser e2e requirement |
-| --- | --- | --- |
-| Auth and session | Unit + API integration | Login included in at least one journey |
-| Localization | Unit + component | Localized login or locale switch included once |
-| Projects | Component + API integration | Create/rename/delete covered once |
-| Documents and build pipeline | Runtime/package + API integration + route tests | Create/edit/build/failure covered once |
-| Workspace UX | Route/component tests | One happy-path render and one failure-path proof |
-| Handbook | Package + API + route tests | One authenticated handbook journey |
-| On-prem packaging | Compose integration | None beyond normal app boot inside e2e |
+| Feature area                 | Primary confidence layer                        | Browser e2e requirement                          |
+| ---------------------------- | ----------------------------------------------- | ------------------------------------------------ |
+| Auth and session             | Unit + API integration                          | Login included in at least one journey           |
+| Localization                 | Unit + component                                | Localized login or locale switch included once   |
+| Projects                     | Component + API integration                     | Create/rename/delete covered once                |
+| Documents and build pipeline | Runtime/package + API integration + route tests | Create/edit/build/failure covered once           |
+| Workspace UX                 | Route/component tests                           | One happy-path render and one failure-path proof |
+| Handbook                     | Package + API + route tests                     | One authenticated handbook journey               |
+| On-prem packaging            | Compose integration                             | None beyond normal app boot inside e2e           |
 
 ## CI policy
 

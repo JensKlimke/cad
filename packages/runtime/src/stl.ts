@@ -6,12 +6,16 @@ import type { RuntimeBuildResult } from './types.js';
 
 export function exportBuildResultAsStl(result: RuntimeBuildResult): Uint8Array {
   if (result.tessellation === null) {
-    throw runtimeError('runtime.no_exportable_solid', 'The current document build does not produce an exportable solid.', [
-      {
-        code: 'runtime.no_exportable_solid',
-        message: 'The current document build does not produce an exportable solid.',
-      },
-    ]);
+    throw runtimeError(
+      'runtime.no_exportable_solid',
+      'The current document build does not produce an exportable solid.',
+      [
+        {
+          code: 'runtime.no_exportable_solid',
+          message: 'The current document build does not produce an exportable solid.',
+        },
+      ],
+    );
   }
   return tessellationToStl({
     positions: new Float32Array(result.tessellation.positions),

@@ -62,6 +62,22 @@ describe('@cad/sdk', () => {
     expect(feature.direction).toBe('symmetric');
   });
 
+  it('normalizes numeric and named pad lengths', () => {
+    expect(
+      pad({
+        sketch: 'sketch_1',
+        length: 12,
+      }).length,
+    ).toEqual({ kind: 'literal', value: 12, unit: 'mm' });
+
+    expect(
+      pad({
+        sketch: 'sketch_1',
+        length: 'height',
+      }).length,
+    ).toEqual({ kind: 'reference', name: 'height' });
+  });
+
   it('creates persisted sketch features', () => {
     expect(sketch({ svg: DEFAULT_SKETCH_SVG, constraints: DEFAULT_SKETCH_CONSTRAINTS })).toEqual({
       kind: 'sketch',

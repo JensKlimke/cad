@@ -49,7 +49,12 @@ export function NewProjectDialog({
   };
 
   return (
-    <dialog ref={ref} className="workspace-dialog" onClose={onClose} data-testid="new-project-dialog">
+    <dialog
+      ref={ref}
+      className="workspace-dialog"
+      onClose={onClose}
+      data-testid="new-project-dialog"
+    >
       <form onSubmit={handleSubmit} method="dialog" className="workspace-dialog__form">
         <div className="workspace-dialog__header">
           <p className="workspace-dialog__eyebrow">{t('new_dialog.eyebrow')}</p>

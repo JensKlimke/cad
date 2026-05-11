@@ -61,9 +61,11 @@ export function WorkspaceShell({
         <nav className="app-shell__nav" aria-label={t('workspace.title')}>
           <NavLink
             to="/projects"
-            className={({ isActive }) => (isActive && documentLink === undefined && projectLink === undefined
-              ? 'app-shell__nav-link app-shell__nav-link--active'
-              : 'app-shell__nav-link')}
+            className={({ isActive }) =>
+              isActive && documentLink === undefined && projectLink === undefined
+                ? 'app-shell__nav-link app-shell__nav-link--active'
+                : 'app-shell__nav-link'
+            }
             end
           >
             <span className="app-shell__nav-label">{t('list.title')}</span>
@@ -75,7 +77,8 @@ export function WorkspaceShell({
               className={({ isActive }) =>
                 isActive && documentLink === undefined
                   ? 'app-shell__nav-link app-shell__nav-link--active'
-                  : 'app-shell__nav-link'}
+                  : 'app-shell__nav-link'
+              }
             >
               <span className="app-shell__nav-label">{projectLink.name}</span>
               <span className="app-shell__nav-meta">{t('detail.summary_title')}</span>
@@ -85,7 +88,8 @@ export function WorkspaceShell({
             <NavLink
               to={`/projects/${projectLink.id}/documents/${documentLink.id}`}
               className={({ isActive }) =>
-                isActive ? 'app-shell__nav-link app-shell__nav-link--active' : 'app-shell__nav-link'}
+                isActive ? 'app-shell__nav-link app-shell__nav-link--active' : 'app-shell__nav-link'
+              }
             >
               <span className="app-shell__nav-label">{documentLink.name}</span>
               <span className="app-shell__nav-meta">{t('document_workspace.editor_title')}</span>
@@ -126,7 +130,9 @@ export function WorkspaceShell({
             <h2 className="app-shell__content-title">{title}</h2>
             <p className="app-shell__content-body">{description}</p>
           </div>
-          {headerActions !== undefined && <div className="app-shell__header-actions">{headerActions}</div>}
+          {headerActions !== undefined && (
+            <div className="app-shell__header-actions">{headerActions}</div>
+          )}
         </header>
         <div className="app-shell__main">{children}</div>
       </div>

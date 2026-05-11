@@ -22,7 +22,8 @@ import type { TessellationResult } from '@cad/kernel';
 
 export const documentQueryKey = (id: string) => ['documents', id] as const;
 export const documentBuildQueryKey = (id: string) => ['documents', id, 'build'] as const;
-export const documentBuildStreamStateQueryKey = (id: string) => ['documents', id, 'build-stream'] as const;
+export const documentBuildStreamStateQueryKey = (id: string) =>
+  ['documents', id, 'build-stream'] as const;
 
 export type DocumentBuildStreamState =
   | null
@@ -98,7 +99,9 @@ export function useDocumentBuildState(id: string | undefined) {
     initialData:
       id === undefined
         ? null
-        : ((queryClient.getQueryData(documentBuildQueryKey(id)) as BuildDocumentResponse | undefined) ?? null),
+        : ((queryClient.getQueryData(documentBuildQueryKey(id)) as
+            | BuildDocumentResponse
+            | undefined) ?? null),
     enabled: false,
     staleTime: Number.POSITIVE_INFINITY,
   });
@@ -107,13 +110,15 @@ export function useDocumentBuildState(id: string | undefined) {
 export function useDocumentBuildStreamState(id: string | undefined) {
   const queryClient = useQueryClient();
   return useQuery<DocumentBuildStreamState>({
-    queryKey: id === undefined ? ['documents', 'build-stream'] : documentBuildStreamStateQueryKey(id),
+    queryKey:
+      id === undefined ? ['documents', 'build-stream'] : documentBuildStreamStateQueryKey(id),
     queryFn: async () => null,
     initialData:
       id === undefined
         ? null
-        : ((queryClient.getQueryData(documentBuildStreamStateQueryKey(id)) as DocumentBuildStreamState | undefined)
-            ?? null),
+        : ((queryClient.getQueryData(documentBuildStreamStateQueryKey(id)) as
+            | DocumentBuildStreamState
+            | undefined) ?? null),
     enabled: false,
     staleTime: Number.POSITIVE_INFINITY,
   });
@@ -130,7 +135,9 @@ export function useDocumentBuildEvents(
       return;
     }
 
-    const source = new EventSource(buildApiUrl(`/documents/${id}/events`), { withCredentials: true });
+    const source = new EventSource(buildApiUrl(`/documents/${id}/events`), {
+      withCredentials: true,
+    });
 
     const handleMessage = (event: MessageEvent<string>): void => {
       let payload: unknown;
@@ -165,7 +172,9 @@ export function useDocumentBuildEvents(
           queryClient.setQueryData(documentBuildStreamStateQueryKey(id), {
             kind: 'ready',
             documentId: result.data.payload.documentId,
-            hash: result.data.payload.build.tessellation?.metadata.hash ?? result.data.payload.build.documentHash,
+            hash:
+              result.data.payload.build.tessellation?.metadata.hash ??
+              result.data.payload.build.documentHash,
           } satisfies DocumentBuildStreamState);
           onBuild?.(result.data.payload);
           break;

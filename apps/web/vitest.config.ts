@@ -18,7 +18,15 @@ import { defineConfig } from 'vitest/config';
 // which asserts the kernel → worker → renderer → `data-tessellation-hash`
 // chain in a real Chromium.
 
-const preset = defineVitestPreset({ packageType: 'browser' });
+const preset = defineVitestPreset({
+  packageType: 'browser',
+  coverage: {
+    lines: 65,
+    branches: 55,
+    functions: 65,
+    statements: 65,
+  },
+});
 
 const presetExcludes = (preset.test?.coverage?.exclude ?? []) as string[];
 

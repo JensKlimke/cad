@@ -1,6 +1,9 @@
 import type { AstNodeSelection, DocumentAST } from './types.js';
 
-export function findNodeSelectionAtOffset(ast: DocumentAST, offset: number): AstNodeSelection | null {
+export function findNodeSelectionAtOffset(
+  ast: DocumentAST,
+  offset: number,
+): AstNodeSelection | null {
   for (const parameter of ast.parameters) {
     if (parameter.range !== undefined && containsOffset(parameter.range, offset)) {
       return { kind: 'parameter', id: parameter.id };
@@ -24,6 +27,9 @@ export function getNodeRange(ast: DocumentAST, selection: AstNodeSelection | nul
   return ast.features.find((feature) => feature.id === selection.id)?.range ?? null;
 }
 
-function containsOffset(range: { readonly start: number; readonly end: number }, offset: number): boolean {
+function containsOffset(
+  range: { readonly start: number; readonly end: number },
+  offset: number,
+): boolean {
   return offset >= range.start && offset <= range.end;
 }

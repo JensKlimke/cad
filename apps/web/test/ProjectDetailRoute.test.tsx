@@ -65,7 +65,9 @@ describe('<ProjectDetailRoute />', () => {
         const method = requestMethod(input, init);
 
         if (url.endsWith('/auth/me')) {
-          throw new Error('ProjectDetailRoute.test.tsx should not call /auth/me when AuthContext is mocked.');
+          throw new Error(
+            'ProjectDetailRoute.test.tsx should not call /auth/me when AuthContext is mocked.',
+          );
         }
 
         if (url.endsWith('/projects/01HQ8K3VBRZ8XGRGY5T0WJD8AH') && method === 'GET') {

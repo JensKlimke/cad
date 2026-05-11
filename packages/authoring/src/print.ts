@@ -12,7 +12,9 @@ export async function printDocument(ast: DocumentAST): Promise<string> {
     '',
     'export default defineDocument({',
     '  parameters: parameters({',
-    ...ast.parameters.map((parameter) => `    ${parameter.name}: ${printParameterDefinition(parameter.definition)},`),
+    ...ast.parameters.map(
+      (parameter) => `    ${parameter.name}: ${printParameterDefinition(parameter.definition)},`,
+    ),
     '  }),',
     '  body: body([',
     ...ast.features.map((feature) => `    ${printFeature(feature)},`),
@@ -24,7 +26,7 @@ export async function printDocument(ast: DocumentAST): Promise<string> {
     parser: 'typescript',
     plugins: [typescriptPlugin, estreePlugin],
     singleQuote: true,
-    printWidth: 120,
+    printWidth: 100,
   });
 }
 
@@ -39,12 +41,22 @@ function collectSdkImports(ast: DocumentAST): readonly string[] {
     imports.add('feature');
     collectScalarImports(feature.length, imports);
   }
-  return ['body', 'defineDocument', 'expression', 'feature', 'literal', 'pad', 'parameters', 'reference', 'sketch'].filter(
-    (name) => imports.has(name),
-  );
+  return [
+    'body',
+    'defineDocument',
+    'expression',
+    'feature',
+    'literal',
+    'pad',
+    'parameters',
+    'reference',
+    'sketch',
+  ].filter((name) => imports.has(name));
 }
 
-function printParameterDefinition(definition: DocumentAST['parameters'][number]['definition']): string {
+function printParameterDefinition(
+  definition: DocumentAST['parameters'][number]['definition'],
+): string {
   if ('expression' in definition) {
     return `{ kind: 'expression', expression: ${JSON.stringify(definition.expression)}, unit: '${definition.unit}' }`;
   }

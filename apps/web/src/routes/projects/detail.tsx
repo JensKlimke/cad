@@ -140,13 +140,19 @@ export function ProjectDetailRoute(): React.JSX.Element {
         </div>
         <div className="document-list">
           {isLoading && (
-            <div className="workspace-state workspace-state--panel" data-testid="project-detail-loading">
+            <div
+              className="workspace-state workspace-state--panel"
+              data-testid="project-detail-loading"
+            >
               <p className="workspace-state__title">{t('states.loading_title')}</p>
               <p className="workspace-state__body">{t('states.loading_body')}</p>
             </div>
           )}
           {hasError && (
-            <div className="workspace-state workspace-state--panel" data-testid="project-detail-error">
+            <div
+              className="workspace-state workspace-state--panel"
+              data-testid="project-detail-error"
+            >
               <p className="workspace-state__title">{t('states.error_title')}</p>
               <p className="workspace-state__body">{t('detail.error_body')}</p>
             </div>

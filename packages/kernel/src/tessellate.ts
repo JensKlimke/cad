@@ -82,7 +82,9 @@ export async function createBox(input: unknown): Promise<TessellationResult> {
   }
 }
 
-export async function createPadFromRectangleSketch(input: RectanglePadInput): Promise<TessellationResult> {
+export async function createPadFromRectangleSketch(
+  input: RectanglePadInput,
+): Promise<TessellationResult> {
   const rectangle = rectanglePadInputSchema.parse(input);
   await initOCCT();
   const { solid } = buildRectanglePad(rectangle);
@@ -131,15 +133,19 @@ function buildRectanglePad(input: RectanglePadInput): {
   };
 } {
   const normal = planeNormal(input.plane);
-  const extrusionDirection = input.direction === 'down'
-    ? (normal.map((value) => -value) as [number, number, number])
-    : normal;
+  const extrusionDirection =
+    input.direction === 'down'
+      ? (normal.map((value) => -value) as [number, number, number])
+      : normal;
   const sketch = new Sketcher(input.plane.toUpperCase() as 'XY' | 'YZ' | 'XZ')
     .movePointerTo([input.x, input.y])
     .hLine(input.width)
     .vLine(input.height)
     .hLine(-input.width);
-  const closed = sketch.close() as unknown as { readonly delete?: () => void; extrude: (distance: number, config?: unknown) => unknown };
+  const closed = sketch.close() as unknown as {
+    readonly delete?: () => void;
+    extrude: (distance: number, config?: unknown) => unknown;
+  };
   const extruded = closed.extrude(input.length, { extrusionDirection }) as unknown as {
     readonly translate: (xDist: number, yDist: number, zDist: number) => unknown;
     readonly mesh: (options: { tolerance: number; angularTolerance: number }) => unknown;
@@ -229,7 +235,11 @@ function writeIndexedVertex(
   ]);
 }
 
-function writeVec3(view: DataView, offset: number, vector: readonly [number, number, number]): number {
+function writeVec3(
+  view: DataView,
+  offset: number,
+  vector: readonly [number, number, number],
+): number {
   view.setFloat32(offset, vector[0], true);
   view.setFloat32(offset + 4, vector[1], true);
   view.setFloat32(offset + 8, vector[2], true);

@@ -61,8 +61,7 @@ export function buildNamedViewCameraState(
     case 'right': {
       return { ...previous, yaw: Math.PI / 2, pitch: 0, target: [0, 0, 0] };
     }
-    case 'iso':
-    {
+    case 'iso': {
       return { ...previous, yaw: Math.PI / 4, pitch: 0.55, target: [0, 0, 0] };
     }
   }
@@ -92,7 +91,9 @@ export function loadViewportSettings(storageKey: string): ViewportSettings | nul
 }
 
 export function normalizeViewportSettings(parsed: Partial<ViewportSettings>): ViewportSettings {
-  const namedView = isNamedView(parsed.namedView) ? parsed.namedView : DEFAULT_VIEWPORT_SETTINGS.namedView;
+  const namedView = isNamedView(parsed.namedView)
+    ? parsed.namedView
+    : DEFAULT_VIEWPORT_SETTINGS.namedView;
   const projection = isProjectionMode(parsed.projection)
     ? parsed.projection
     : DEFAULT_VIEWPORT_SETTINGS.projection;

@@ -4,9 +4,23 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import { applyAuthoringOp, findNodeSelectionAtOffset, parseDocument, printDocument } from '../src/index.js';
+import {
+  applyAuthoringOp,
+  findNodeSelectionAtOffset,
+  getNodeRange,
+  parseDocument,
+  printDocument,
+} from '../src/index.js';
 
-const FIXTURE_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'tests', 'fixtures', 'slice-2');
+const FIXTURE_DIR = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '..',
+  '..',
+  '..',
+  'tests',
+  'fixtures',
+  'slice-2',
+);
 const DEFAULT_SKETCH = {
   kind: 'sketch' as const,
   id: 'sketch_1',
@@ -172,7 +186,9 @@ describe('@cad/authoring', () => {
     const source = await readFixture('valid-pad.document.ts');
     const ast = parseDocument(source);
 
-    expect(findNodeSelectionAtOffset(ast, source.indexOf("width: { kind: 'number', value"))).toEqual({
+    expect(
+      findNodeSelectionAtOffset(ast, source.indexOf("width: { kind: 'number', value")),
+    ).toEqual({
       kind: 'parameter',
       id: ast.parameters[0]!.id,
     });
@@ -180,6 +196,16 @@ describe('@cad/authoring', () => {
       kind: 'feature',
       id: 'pad_1',
     });
+    expect(findNodeSelectionAtOffset(ast, -1)).toBeNull();
+    expect(getNodeRange(ast, null)).toBeNull();
+    expect(getNodeRange(ast, { kind: 'parameter', id: ast.parameters[0]!.id })).toEqual(
+      ast.parameters[0]!.range,
+    );
+    expect(getNodeRange(ast, { kind: 'feature', id: 'pad_1' })).toEqual(
+      ast.features.find((feature) => feature.id === 'pad_1')!.range,
+    );
+    expect(getNodeRange(ast, { kind: 'parameter', id: 'missing' })).toBeNull();
+    expect(getNodeRange(ast, { kind: 'feature', id: 'missing' })).toBeNull();
   });
 
   it('rejects unsupported top-level shapes during parse', async () => {
@@ -189,10 +215,12 @@ describe('@cad/authoring', () => {
   });
 
   it('rejects invalid document and parameter shapes during parse', () => {
-    expect(() => parseDocument('export default {};\n')).toThrow(/expected `export default defineDocument/u);
-    expect(() =>
-      parseDocument('export default defineDocument([]);\n'),
-    ).toThrow(/defineDocument expects an object literal/u);
+    expect(() => parseDocument('export default {};\n')).toThrow(
+      /expected `export default defineDocument/u,
+    );
+    expect(() => parseDocument('export default defineDocument([]);\n')).toThrow(
+      /defineDocument expects an object literal/u,
+    );
     expect(() =>
       parseDocument(`
         export default defineDocument({
@@ -357,14 +385,333 @@ describe('@cad/authoring', () => {
     ).toThrow(/unsupported scalar input/u);
   });
 
+  it('rejects malformed feature references, scalar helpers, and directions', () => {
+    expect(() =>
+      parseDocument(`
+        export default defineDocument({
+          parameters: parameters({}),
+          body: body([
+            pad({
+              sketch: { kind: true, id: 'sketch_1' },
+              length: 4,
+              direction: 'up',
+            }),
+          ]),
+        });
+      `),
+    ).toThrow(/feature reference kind must be a string literal/u);
+    expect(() =>
+      parseDocument(`
+        export default defineDocument({
+          parameters: parameters({}),
+          body: body([
+            pad({
+              sketch: feature(),
+              length: 4,
+              direction: 'up',
+            }),
+          ]),
+        });
+      `),
+    ).toThrow(/pad sketch reference must be/u);
+    expect(() =>
+      parseDocument(`
+        export default defineDocument({
+          parameters: parameters({}),
+          body: body([
+            pad({
+              sketch: 'sketch_1',
+              length: reference(),
+              direction: 'up',
+            }),
+          ]),
+        });
+      `),
+    ).toThrow(/unsupported scalar input/u);
+    expect(() =>
+      parseDocument(`
+        export default defineDocument({
+          parameters: parameters({}),
+          body: body([
+            pad({
+              sketch: 'sketch_1',
+              length: expression('width / 2'),
+              direction: 'up',
+            }),
+          ]),
+        });
+      `),
+    ).toThrow(/unsupported scalar input/u);
+    expect(() =>
+      parseDocument(`
+        export default defineDocument({
+          parameters: parameters({}),
+          body: body([
+            pad({
+              sketch: 'sketch_1',
+              length: literal(4),
+              direction: 'up',
+            }),
+          ]),
+        });
+      `),
+    ).toThrow(/unsupported scalar input/u);
+    expect(() =>
+      parseDocument(`
+        export default defineDocument({
+          parameters: parameters({}),
+          body: body([
+            pad({
+              sketch: 'sketch_1',
+              length: 4,
+              direction: 'sideways',
+            }),
+          ]),
+        });
+      `),
+    ).toThrow(/pad direction must be `up`, `down`, or `symmetric`/u);
+    expect(() =>
+      parseDocument(`
+        export default defineDocument({
+          parameters: parameters({}),
+          body: body([
+            pad({
+              sketch: 'sketch_1',
+              length: 4,
+              direction: true,
+            }),
+          ]),
+        });
+      `),
+    ).toThrow(/pad direction must be a string literal/u);
+  });
+
+  it('parses optional ids, planes, directions, and scalar helper variants', () => {
+    const parsed = parseDocument(`
+      export default defineDocument({
+        parameters: parameters({
+          width: { kind: 'number', value: -4, unit: 'mm' },
+        }),
+        body: body([
+          sketch({
+            id: 'sketch_explicit',
+            plane: 'xz',
+            svg: ${JSON.stringify(DEFAULT_SKETCH.svg)},
+            constraints: {
+              kind: 'rectangle',
+              anchor: 'origin',
+              width: 80,
+              height: { kind: 'reference', name: 'width' },
+            },
+          }),
+          pad({
+            sketch: 'sketch_explicit',
+            length: reference('width'),
+          }),
+          pad({
+            sketch: 'sketch_explicit',
+            length: 'width',
+            direction: 'down',
+          }),
+          pad({
+            sketch: feature('sketch_explicit'),
+            length: literal(6, 'mm'),
+            direction: 'symmetric',
+          }),
+        ]),
+      });
+    `);
+
+    expect(parsed.parameters[0]).toMatchObject({
+      definition: { kind: 'number', value: -4, unit: 'mm' },
+    });
+    expect(parsed.features[0]).toMatchObject({
+      kind: 'sketch',
+      id: 'sketch_explicit',
+      plane: 'xz',
+    });
+    expect(parsed.features[1]).toMatchObject({
+      kind: 'pad',
+      id: 'pad_2',
+      sketch: 'sketch_explicit',
+      length: { kind: 'reference', name: 'width' },
+      direction: 'up',
+    });
+    expect(parsed.features[2]).toMatchObject({
+      kind: 'pad',
+      id: 'pad_3',
+      length: { kind: 'reference', name: 'width' },
+      direction: 'down',
+    });
+    expect(parsed.features[3]).toMatchObject({
+      kind: 'pad',
+      id: 'pad_4',
+      length: { kind: 'literal', value: 6, unit: 'mm' },
+      direction: 'symmetric',
+    });
+  });
+
   it('prints persisted sketch features', async () => {
     const printed = await printDocument({
       parameters: [],
       features: [DEFAULT_SKETCH],
     });
 
-    expect(printed).toContain("sketch({");
+    expect(printed).toContain('sketch({');
     expect(printed).toContain("plane: 'xy'");
     expect(printed).toContain('constraints:');
+  });
+
+  it('prints expression pad lengths and expression sketch constraints', async () => {
+    const printed = await printDocument({
+      parameters: [],
+      features: [
+        {
+          ...DEFAULT_SKETCH,
+          constraints: {
+            kind: 'rectangle',
+            anchor: 'origin',
+            width: { kind: 'expression', source: 'width + 1', unit: 'mm' },
+            height: { kind: 'reference', name: 'depth' },
+          },
+        },
+        {
+          kind: 'pad',
+          id: 'pad_1',
+          sketch: 'sketch_1',
+          length: { kind: 'expression', source: 'height + 2', unit: 'mm' },
+          direction: 'down',
+        },
+      ],
+    });
+
+    expect(printed).toContain('expression');
+    expect(printed).toContain("length: expression('height + 2', 'mm')");
+    expect(printed).toContain("source: 'width + 1'");
+  });
+
+  it('keeps missing rename/update/reorder operations stable', async () => {
+    const ast = parseDocument(await readFixture('valid-sketch-pad.document.ts'));
+    expect(
+      applyAuthoringOp(ast, {
+        kind: 'parameter.rename',
+        id: 'missing',
+        newName: 'ignored',
+      }),
+    ).toBe(ast);
+    expect(
+      applyAuthoringOp(ast, {
+        kind: 'feature.reorder',
+        id: 'missing',
+        index: 0,
+      }),
+    ).toBe(ast);
+
+    const withMissingFeatureUpdate = applyAuthoringOp(ast, {
+      kind: 'feature.update',
+      id: 'missing',
+      feature: {
+        kind: 'pad',
+        id: 'pad_missing',
+        sketch: 'sketch_1',
+        length: { kind: 'literal', value: 3, unit: 'mm' },
+        direction: 'up',
+      },
+    });
+    expect(withMissingFeatureUpdate.features).toEqual(ast.features);
+  });
+
+  it('updates sketch ids and dependent pad references together', async () => {
+    const ast = parseDocument(await readFixture('valid-sketch-pad.document.ts'));
+    const updated = applyAuthoringOp(ast, {
+      kind: 'feature.update',
+      id: 'sketch_1',
+      feature: {
+        ...DEFAULT_SKETCH,
+        id: 'sketch_renamed',
+      },
+    });
+
+    expect(updated.features[0]).toMatchObject({ id: 'sketch_renamed' });
+    expect(updated.features[1]).toMatchObject({ sketch: 'sketch_renamed' });
+  });
+
+  it('rejects invalid sketch constraint values during parse', () => {
+    expect(() =>
+      parseDocument(`
+        export default defineDocument({
+          parameters: parameters({}),
+          body: body([
+            sketch({
+              id: 'sketch_1',
+              svg: ${JSON.stringify(DEFAULT_SKETCH.svg)},
+              constraints: {
+                kind: 'rectangle',
+                anchor: 'origin',
+                width: { kind: 'literal', value: 'bad', unit: 'mm' },
+                height: 10,
+              },
+            }),
+          ]),
+        });
+      `),
+    ).toThrow(/sketch literal value must be numeric/u);
+    expect(() =>
+      parseDocument(`
+        export default defineDocument({
+          parameters: parameters({}),
+          body: body([
+            sketch({
+              id: 'sketch_1',
+              svg: ${JSON.stringify(DEFAULT_SKETCH.svg)},
+              constraints: {
+                kind: 'rectangle',
+                anchor: 'origin',
+                width: { kind: 'unknown' },
+                height: 10,
+              },
+            }),
+          ]),
+        });
+      `),
+    ).toThrow(/unsupported sketch constraint value/u);
+    expect(() =>
+      parseDocument(`
+        export default defineDocument({
+          parameters: parameters({}),
+          body: body([
+            sketch({
+              id: 'sketch_1',
+              svg: ${JSON.stringify(DEFAULT_SKETCH.svg)},
+              constraints: {
+                kind: 'circle',
+                anchor: 'origin',
+                width: 10,
+                height: 10,
+              },
+            }),
+          ]),
+        });
+      `),
+    ).toThrow(/only rectangle sketch constraints/u);
+    expect(() =>
+      parseDocument(`
+        export default defineDocument({
+          parameters: parameters({}),
+          body: body([
+            sketch({
+              id: 'sketch_1',
+              svg: ${JSON.stringify(DEFAULT_SKETCH.svg)},
+              constraints: {
+                kind: 'rectangle',
+                anchor: 'center',
+                width: 10,
+                height: 10,
+              },
+            }),
+          ]),
+        });
+      `),
+    ).toThrow(/only origin-anchored/u);
   });
 });

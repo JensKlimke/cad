@@ -277,16 +277,23 @@ async function waitForBuildIdle(page: Page): Promise<void> {
 
 async function selectViewportReference(page: Page): Promise<void> {
   await page.getByTestId('viewport-root').evaluate((node) => {
-    const selectReference = (node as {
-      __cadSelectReference?: (selection?: { readonly kind?: string; readonly index?: number }) => void;
-    }).__cadSelectReference;
+    const selectReference = (
+      node as {
+        __cadSelectReference?: (selection?: {
+          readonly kind?: string;
+          readonly index?: number;
+        }) => void;
+      }
+    ).__cadSelectReference;
     if (typeof selectReference !== 'function') {
       throw new TypeError('viewport reference test hook is not available');
     }
     selectReference({ kind: 'face', index: 0 });
   });
   await expect
-    .poll(async () => page.getByTestId('viewport-root').evaluate((node) => node.dataset['referenceLayer']))
+    .poll(async () =>
+      page.getByTestId('viewport-root').evaluate((node) => node.dataset['referenceLayer']),
+    )
     .toBe('finder');
 }
 

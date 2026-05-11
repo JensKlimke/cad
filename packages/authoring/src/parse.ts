@@ -6,7 +6,13 @@ import type { SourceRange } from '@cad/expr';
 import type { RectangleSketchConstraints, SketchConstraintValue } from '@cad/sketch';
 
 export function parseDocument(source: string): DocumentAST {
-  const file = ts.createSourceFile('document.ts', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+  const file = ts.createSourceFile(
+    'document.ts',
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TS,
+  );
   const exportAssignment = file.statements.find((statement) => ts.isExportAssignment(statement));
   if (exportAssignment === undefined || !ts.isCallExpression(exportAssignment.expression)) {
     throw new Error('parseDocument: expected `export default defineDocument(...)`.');
@@ -74,10 +80,14 @@ function parseParameterDefinition(node: ts.Expression) {
     throw new Error('parseDocument: parameter definition must include string literal `unit`.');
   }
   if (valueNode !== undefined && exprNode !== undefined) {
-    throw new Error('parseDocument: parameter definition cannot include both `value` and `expression`.');
+    throw new Error(
+      'parseDocument: parameter definition cannot include both `value` and `expression`.',
+    );
   }
   if (kindNode !== undefined && !ts.isStringLiteral(kindNode)) {
-    throw new Error('parseDocument: parameter definition `kind` must be a string literal when provided.');
+    throw new Error(
+      'parseDocument: parameter definition `kind` must be a string literal when provided.',
+    );
   }
   if (kindNode !== undefined && !['number', 'expression'].includes(kindNode.text)) {
     throw new Error('parseDocument: parameter definition `kind` must be `number` or `expression`.');
@@ -99,7 +109,9 @@ function parseParameterDefinition(node: ts.Expression) {
       unit: unitNode.text as never,
     };
   }
-  throw new Error('parseDocument: parameter definition must include `value` or string literal `expression`.');
+  throw new Error(
+    'parseDocument: parameter definition must include `value` or string literal `expression`.',
+  );
 }
 
 function parseBody(call: ts.CallExpression): readonly FeatureAst[] {
@@ -143,7 +155,8 @@ function parseFeature(node: ts.Expression, index: number): FeatureAst {
     return {
       kind: 'sketch',
       id: readId(config, `sketch_${index + 1}`),
-      plane: planeNode !== undefined && ts.isStringLiteral(planeNode) ? planeNode.text as never : 'xy',
+      plane:
+        planeNode !== undefined && ts.isStringLiteral(planeNode) ? (planeNode.text as never) : 'xy',
       svg,
       geometry: parseSketchSvg(svg),
       constraints,
@@ -198,22 +211,30 @@ function parseFeatureReference(node: ts.Expression): string {
     const kindNode = getObjectProperty(node, 'kind');
     const idNode = getObjectProperty(node, 'id');
     if (
-      kindNode !== undefined
-      && idNode !== undefined
-      && readStringLiteral(kindNode, 'parseDocument: feature reference kind must be a string literal.') === 'feature'
-      && ts.isStringLiteral(idNode)
+      kindNode !== undefined &&
+      idNode !== undefined &&
+      readStringLiteral(
+        kindNode,
+        'parseDocument: feature reference kind must be a string literal.',
+      ) === 'feature' &&
+      ts.isStringLiteral(idNode)
     ) {
       return idNode.text;
     }
   }
-  throw new Error('parseDocument: pad sketch reference must be a string literal, feature(...), or feature object.');
+  throw new Error(
+    'parseDocument: pad sketch reference must be a string literal, feature(...), or feature object.',
+  );
 }
 
 function parsePadDirection(node: ts.Expression | undefined): 'up' | 'down' | 'symmetric' {
   if (node === undefined) {
     return 'up';
   }
-  const direction = readStringLiteral(node, 'parseDocument: pad direction must be a string literal.');
+  const direction = readStringLiteral(
+    node,
+    'parseDocument: pad direction must be a string literal.',
+  );
   if (direction === 'up' || direction === 'down' || direction === 'symmetric') {
     return direction;
   }
@@ -246,10 +267,10 @@ function parseScalarInput(node: ts.Expression): ScalarAstInput {
       const sourceNode = node.arguments[0];
       const unitNode = node.arguments[1];
       if (
-        sourceNode !== undefined
-        && unitNode !== undefined
-        && ts.isStringLiteral(sourceNode)
-        && ts.isStringLiteral(unitNode)
+        sourceNode !== undefined &&
+        unitNode !== undefined &&
+        ts.isStringLiteral(sourceNode) &&
+        ts.isStringLiteral(unitNode)
       ) {
         return { kind: 'expression', source: sourceNode.text, unit: unitNode.text as never };
       }
@@ -258,7 +279,11 @@ function parseScalarInput(node: ts.Expression): ScalarAstInput {
       const valueNode = node.arguments[0];
       const unitNode = node.arguments[1];
       if (valueNode !== undefined && unitNode !== undefined && ts.isStringLiteral(unitNode)) {
-        return { kind: 'literal', value: Number(renderExpression(valueNode)), unit: unitNode.text as never };
+        return {
+          kind: 'literal',
+          value: Number(renderExpression(valueNode)),
+          unit: unitNode.text as never,
+        };
       }
     }
   }
@@ -272,8 +297,14 @@ function parseSketchConstraints(node: ts.ObjectLiteralExpression): RectangleSket
   const anchorNode = expectProperty(node, 'anchor');
   const widthNode = expectProperty(node, 'width');
   const heightNode = expectProperty(node, 'height');
-  const kind = readStringLiteral(kindNode, 'parseDocument: sketch constraint kind must be a string literal.');
-  const anchor = readStringLiteral(anchorNode, 'parseDocument: sketch constraint anchor must be a string literal.');
+  const kind = readStringLiteral(
+    kindNode,
+    'parseDocument: sketch constraint kind must be a string literal.',
+  );
+  const anchor = readStringLiteral(
+    anchorNode,
+    'parseDocument: sketch constraint anchor must be a string literal.',
+  );
   if (kind !== 'rectangle') {
     throw new Error('parseDocument: only rectangle sketch constraints are supported.');
   }
@@ -298,7 +329,10 @@ function parseSketchConstraintValue(node: ts.Expression): SketchConstraintValue 
   }
   if (ts.isObjectLiteralExpression(node)) {
     const kindNode = expectProperty(node, 'kind');
-    const kind = readStringLiteral(kindNode, 'parseDocument: sketch constraint value kind must be a string literal.');
+    const kind = readStringLiteral(
+      kindNode,
+      'parseDocument: sketch constraint value kind must be a string literal.',
+    );
     if (kind === 'literal') {
       const valueNode = expectProperty(node, 'value');
       const unitNode = expectProperty(node, 'unit');
@@ -308,20 +342,32 @@ function parseSketchConstraintValue(node: ts.Expression): SketchConstraintValue 
       return {
         kind: 'literal',
         value: Number(renderExpression(valueNode)),
-        unit: readStringLiteral(unitNode, 'parseDocument: sketch literal unit must be a string literal.') as 'mm',
+        unit: readStringLiteral(
+          unitNode,
+          'parseDocument: sketch literal unit must be a string literal.',
+        ) as 'mm',
       };
     }
     if (kind === 'reference') {
       return {
         kind: 'reference',
-        name: readStringLiteral(expectProperty(node, 'name'), 'parseDocument: sketch reference name must be a string literal.'),
+        name: readStringLiteral(
+          expectProperty(node, 'name'),
+          'parseDocument: sketch reference name must be a string literal.',
+        ),
       };
     }
     if (kind === 'expression') {
       return {
         kind: 'expression',
-        source: readStringLiteral(expectProperty(node, 'source'), 'parseDocument: sketch expression source must be a string literal.'),
-        unit: readStringLiteral(expectProperty(node, 'unit'), 'parseDocument: sketch expression unit must be a string literal.') as 'mm',
+        source: readStringLiteral(
+          expectProperty(node, 'source'),
+          'parseDocument: sketch expression source must be a string literal.',
+        ),
+        unit: readStringLiteral(
+          expectProperty(node, 'unit'),
+          'parseDocument: sketch expression unit must be a string literal.',
+        ) as 'mm',
       };
     }
   }
@@ -344,9 +390,16 @@ function expectProperty(node: ts.ObjectLiteralExpression, name: string): ts.Expr
   return value;
 }
 
-function getObjectProperty(node: ts.ObjectLiteralExpression, name: string): ts.Expression | undefined {
+function getObjectProperty(
+  node: ts.ObjectLiteralExpression,
+  name: string,
+): ts.Expression | undefined {
   for (const property of node.properties) {
-    if (ts.isPropertyAssignment(property) && ts.isIdentifier(property.name) && property.name.text === name) {
+    if (
+      ts.isPropertyAssignment(property) &&
+      ts.isIdentifier(property.name) &&
+      property.name.text === name
+    ) {
       return property.initializer;
     }
   }

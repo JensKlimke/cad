@@ -6,8 +6,10 @@ import { describe, expect, it } from 'vitest';
 
 import {
   ApiError,
+  buildFailed,
   invalidCredentials,
   notFound,
+  statusCodeFor,
   toErrorEnvelope,
   unauthorized,
 } from '../src/errors.js';
@@ -77,6 +79,49 @@ describe('toErrorEnvelope', () => {
     const envelope = toErrorEnvelope('a string');
     expect(envelope.error.code).toBe('internal');
   });
+
+  it('serialises Fastify validation errors with issues and context', () => {
+    const envelope = toErrorEnvelope(
+      {
+        statusCode: 400,
+        message: 'body failed validation',
+        validation: [{ path: ['name'], message: 'Required' }],
+        validationContext: 'body',
+      },
+      'req-validation',
+    );
+
+    expect(envelope).toEqual({
+      error: {
+        code: 'validation.failed',
+        message: 'body failed validation',
+        i18nKey: 'errors:validation.failed',
+        details: {
+          issues: [{ path: ['name'], message: 'Required' }],
+          context: 'body',
+        },
+      },
+      requestId: 'req-validation',
+    });
+  });
+
+  it('serialises 4xx Fastify errors as rejected requests', () => {
+    const envelope = toErrorEnvelope({ statusCode: 404, message: 'Route not found' });
+    expect(envelope.error).toEqual({
+      code: 'request.rejected',
+      message: 'Route not found',
+      i18nKey: 'errors:request.rejected',
+    });
+  });
+});
+
+describe('statusCodeFor', () => {
+  it('honours ApiError and Fastify status codes', () => {
+    expect(statusCodeFor(unauthorized())).toBe(401);
+    expect(statusCodeFor({ statusCode: 415 })).toBe(415);
+    expect(statusCodeFor({ statusCode: 302 })).toBe(500);
+    expect(statusCodeFor(null)).toBe(500);
+  });
 });
 
 describe('error factories', () => {
@@ -105,5 +150,12 @@ describe('error factories', () => {
     expect(err.statusCode).toBe(404);
     expect(err.code).toBe('documents.not_found');
     expect(err.message).toBe('No such document');
+  });
+
+  it('buildFailed() carries optional structured details', () => {
+    const err = buildFailed('Bad CAD source', 409, { diagnostics: ['broken'] });
+    expect(err.statusCode).toBe(409);
+    expect(err.code).toBe('documents.build_failed');
+    expect(err.details).toEqual({ diagnostics: ['broken'] });
   });
 });

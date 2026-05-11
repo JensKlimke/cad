@@ -8,7 +8,11 @@ interface DocumentInspectorProps {
   readonly parameter: ParameterAst | null;
   readonly feature: FeatureAst | null;
   readonly sourceIsValid: boolean;
-  readonly onUpdateParameter: (id: string, name: string, definition: ParameterDefinition) => Promise<void>;
+  readonly onUpdateParameter: (
+    id: string,
+    name: string,
+    definition: ParameterDefinition,
+  ) => Promise<void>;
   readonly onUpdateFeature: (id: string, feature: FeatureAst) => Promise<void>;
   readonly onEnterSketchMode?: (featureId: string) => void;
 }
@@ -43,7 +47,10 @@ export function DocumentInspector({
     );
   }
   return (
-    <section className="workspace-panel workspace-panel--inspector" data-testid="document-inspector-empty">
+    <section
+      className="workspace-panel workspace-panel--inspector"
+      data-testid="document-inspector-empty"
+    >
       <div className="workspace-panel__header workspace-panel__header--compact">
         <div>
           <p className="workspace-panel__eyebrow">Inspector</p>
@@ -67,34 +74,50 @@ function ParameterInspector({
 }: {
   readonly parameter: ParameterAst;
   readonly sourceIsValid: boolean;
-  readonly onUpdateParameter: (id: string, name: string, definition: ParameterDefinition) => Promise<void>;
+  readonly onUpdateParameter: (
+    id: string,
+    name: string,
+    definition: ParameterDefinition,
+  ) => Promise<void>;
 }): React.JSX.Element {
   const [name, setName] = useState(parameter.name);
   const [mode, setMode] = useState<'expression' | 'number'>(
     'expression' in parameter.definition ? 'expression' : 'number',
   );
-  const [value, setValue] = useState(String('value' in parameter.definition ? parameter.definition.value : 10));
+  const [value, setValue] = useState(
+    String('value' in parameter.definition ? parameter.definition.value : 10),
+  );
   const [expression, setExpression] = useState(
-    'expression' in parameter.definition ? parameter.definition.expression : `${parameter.name} * 2`,
+    'expression' in parameter.definition
+      ? parameter.definition.expression
+      : `${parameter.name} * 2`,
   );
   const [unit, setUnit] = useState(parameter.definition.unit);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
-    const definition: ParameterDefinition = mode === 'expression'
-      ? { kind: 'expression', expression, unit }
-      : { kind: 'number', value: Number(value || '0'), unit };
+    const definition: ParameterDefinition =
+      mode === 'expression'
+        ? { kind: 'expression', expression, unit }
+        : { kind: 'number', value: Number(value || '0'), unit };
     await onUpdateParameter(parameter.id, name, definition);
   }
 
   return (
-    <section className="workspace-panel workspace-panel--inspector" data-testid="document-inspector-parameter">
+    <section
+      className="workspace-panel workspace-panel--inspector"
+      data-testid="document-inspector-parameter"
+    >
       <div className="workspace-panel__header workspace-panel__header--compact">
         <div>
           <p className="workspace-panel__eyebrow">Inspector</p>
           <h2 className="workspace-panel__title">{parameter.name}</h2>
         </div>
-        <Link className="workspace-inline-link" to="/handbook/features/parameters" data-testid="parameter-inspector-help">
+        <Link
+          className="workspace-inline-link"
+          to="/handbook/features/parameters"
+          data-testid="parameter-inspector-help"
+        >
           ?
         </Link>
       </div>
@@ -173,7 +196,11 @@ function ParameterInspector({
         <button
           type="submit"
           className="workspace-button workspace-button--primary"
-          disabled={!sourceIsValid || name.trim().length === 0 || (mode === 'expression' ? expression.trim().length === 0 : false)}
+          disabled={
+            !sourceIsValid ||
+            name.trim().length === 0 ||
+            (mode === 'expression' ? expression.trim().length === 0 : false)
+          }
           data-testid="document-inspector-save-parameter"
         >
           Apply parameter
@@ -195,7 +222,7 @@ function FeatureInspector({
   readonly onEnterSketchMode?: (featureId: string) => void;
 }): React.JSX.Element {
   const [id, setId] = useState(feature.id);
-  const [plane, setPlane] = useState(feature.kind === 'sketch' ? feature.plane ?? 'xy' : 'xy');
+  const [plane, setPlane] = useState(feature.kind === 'sketch' ? (feature.plane ?? 'xy') : 'xy');
   const [padValues, setPadValues] = useState(() => createPadFormState(feature));
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>): Promise<void> {
@@ -221,7 +248,10 @@ function FeatureInspector({
   }
 
   return (
-    <section className="workspace-panel workspace-panel--inspector" data-testid="document-inspector-feature">
+    <section
+      className="workspace-panel workspace-panel--inspector"
+      data-testid="document-inspector-feature"
+    >
       <div className="workspace-panel__header workspace-panel__header--compact">
         <div>
           <p className="workspace-panel__eyebrow">Inspector</p>
@@ -238,7 +268,11 @@ function FeatureInspector({
       <form className="inspector-form" onSubmit={(event) => void handleSubmit(event)}>
         <label className="inspector-form__field">
           <span>Id</span>
-          <input value={id} onChange={(event) => setId(event.target.value)} disabled={!sourceIsValid} />
+          <input
+            value={id}
+            onChange={(event) => setId(event.target.value)}
+            disabled={!sourceIsValid}
+          />
         </label>
         <label className="inspector-form__field">
           <span>Kind</span>
@@ -253,7 +287,11 @@ function FeatureInspector({
                   ?
                 </Link>
               </span>
-              <select value={plane} onChange={(event) => setPlane(event.target.value as 'xy' | 'yz' | 'xz')} disabled={!sourceIsValid}>
+              <select
+                value={plane}
+                onChange={(event) => setPlane(event.target.value as 'xy' | 'yz' | 'xz')}
+                disabled={!sourceIsValid}
+              >
                 <option value="xy">xy</option>
                 <option value="yz">yz</option>
                 <option value="xz">xz</option>
@@ -274,7 +312,9 @@ function FeatureInspector({
               <span>Sketch</span>
               <input
                 value={padValues.sketch}
-                onChange={(event) => setPadValues((current) => ({ ...current, sketch: event.target.value }))}
+                onChange={(event) =>
+                  setPadValues((current) => ({ ...current, sketch: event.target.value }))
+                }
                 disabled={!sourceIsValid}
               />
             </label>
@@ -292,7 +332,8 @@ function FeatureInspector({
                   setPadValues((current) => ({
                     ...current,
                     direction: event.target.value as PadFormState['direction'],
-                  }))}
+                  }))
+                }
                 disabled={!sourceIsValid}
               >
                 <option value="up">up</option>
@@ -343,7 +384,13 @@ function ScalarField({
       <legend>{label}</legend>
       <label className="inspector-form__field">
         <span>Input</span>
-        <select value={value.kind} onChange={(event) => onChange({ ...value, kind: event.target.value as ScalarFieldState['kind'] })} disabled={disabled}>
+        <select
+          value={value.kind}
+          onChange={(event) =>
+            onChange({ ...value, kind: event.target.value as ScalarFieldState['kind'] })
+          }
+          disabled={disabled}
+        >
           <option value="literal">Literal</option>
           <option value="reference">Reference</option>
           <option value="expression">Expression</option>
@@ -351,12 +398,22 @@ function ScalarField({
       </label>
       <label className="inspector-form__field">
         <span>{scalarFieldLabel(value.kind)}</span>
-        <input value={value.value} onChange={(event) => onChange({ ...value, value: event.target.value })} disabled={disabled} />
+        <input
+          value={value.value}
+          onChange={(event) => onChange({ ...value, value: event.target.value })}
+          disabled={disabled}
+        />
       </label>
       {value.kind !== 'reference' && (
         <label className="inspector-form__field">
           <span>Unit</span>
-          <select value={value.unit} onChange={(event) => onChange({ ...value, unit: event.target.value as ScalarFieldState['unit'] })} disabled={disabled}>
+          <select
+            value={value.unit}
+            onChange={(event) =>
+              onChange({ ...value, unit: event.target.value as ScalarFieldState['unit'] })
+            }
+            disabled={disabled}
+          >
             <option value="mm">mm</option>
             <option value="deg">deg</option>
             <option value="rad">rad</option>

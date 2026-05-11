@@ -17,14 +17,15 @@ async function main(): Promise<void> {
   await validateLocaleContent('de', failures);
 
   for (const entry of Object.values(docMetadata)) {
-    const englishPagePath = path.join(
-      REPO_ROOT,
-      'packages',
-      'handbook',
-      'content',
-      'en',
-      entry.handbookPath.replace('/handbook/', ''),
-    ) + '.mdx';
+    const englishPagePath =
+      path.join(
+        REPO_ROOT,
+        'packages',
+        'handbook',
+        'content',
+        'en',
+        entry.handbookPath.replace('/handbook/', ''),
+      ) + '.mdx';
 
     try {
       const raw = await readFile(englishPagePath, 'utf8');
@@ -40,12 +41,16 @@ async function main(): Promise<void> {
   }
 
   if (failures.length > 0) {
-    process.stderr.write(`lint-handbook: FAIL\n${failures.map((failure) => `  - ${failure}`).join('\n')}\n`);
+    process.stderr.write(
+      `lint-handbook: FAIL\n${failures.map((failure) => `  - ${failure}`).join('\n')}\n`,
+    );
     process.exitCode = 1;
     return;
   }
 
-  process.stdout.write(`lint-handbook: OK — ${Object.keys(docMetadata).length} SDK op(s) and handbook pages validated.\n`);
+  process.stdout.write(
+    `lint-handbook: OK — ${Object.keys(docMetadata).length} SDK op(s) and handbook pages validated.\n`,
+  );
 }
 
 async function validateLocaleContent(locale: 'en' | 'de', failures: string[]): Promise<void> {
@@ -58,7 +63,9 @@ async function validateLocaleContent(locale: 'en' | 'de', failures: string[]): P
       try {
         HandbookFrontmatterSchema.parse(matter(await readFile(filePath, 'utf8')).data);
       } catch (error) {
-        failures.push(`${locale}/${kind}/${entry}: ${error instanceof Error ? error.message : String(error)}`);
+        failures.push(
+          `${locale}/${kind}/${entry}: ${error instanceof Error ? error.message : String(error)}`,
+        );
       }
     }
   }

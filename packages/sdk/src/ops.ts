@@ -46,10 +46,22 @@ export const docMetadata = {
     description: 'Extrude a referenced sketch into a solid along its plane normal.',
     handbookPath: '/handbook/features/pad',
     parameters: [
-      { name: 'id', description: 'Stable feature identifier used by the authoring layer and runtime.' },
-      { name: 'sketch', description: 'Referenced sketch feature used as the profile for the extrusion.' },
-      { name: 'length', description: 'Extrusion length as a literal, expression, or parameter reference.' },
-      { name: 'direction', description: 'Extrusion direction relative to the sketch plane normal.' },
+      {
+        name: 'id',
+        description: 'Stable feature identifier used by the authoring layer and runtime.',
+      },
+      {
+        name: 'sketch',
+        description: 'Referenced sketch feature used as the profile for the extrusion.',
+      },
+      {
+        name: 'length',
+        description: 'Extrusion length as a literal, expression, or parameter reference.',
+      },
+      {
+        name: 'direction',
+        description: 'Extrusion direction relative to the sketch plane normal.',
+      },
     ],
   },
   sketch: {
@@ -58,14 +70,20 @@ export const docMetadata = {
     description: 'Declare a persisted rectangle-first sketch feature anchored to a datum plane.',
     handbookPath: '/handbook/features/sketch',
     parameters: [
-      { name: 'id', description: 'Stable feature identifier used by the authoring layer and runtime.' },
+      {
+        name: 'id',
+        description: 'Stable feature identifier used by the authoring layer and runtime.',
+      },
       { name: 'plane', description: 'Datum plane used for the persisted sketch.' },
       { name: 'svg', description: 'Canonical persisted SVG for the supported sketch subset.' },
-      { name: 'constraints', description: 'Rectangle-first constraint payload, including width and height bindings.' },
+      {
+        name: 'constraints',
+        description: 'Rectangle-first constraint payload, including width and height bindings.',
+      },
     ],
   },
 } as const satisfies Readonly<Record<string, SdkOpDocMetadata>>;
 
 export const ops = Object.values(docMetadata).map((entry) => entry.id);
 
-export type SdkOpId = typeof ops[number];
+export type SdkOpId = (typeof ops)[number];

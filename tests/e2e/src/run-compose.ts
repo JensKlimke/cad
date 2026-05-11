@@ -26,7 +26,16 @@ export async function runCompose(
   await new Promise<void>((resolve, reject) => {
     const child = spawn(
       'docker',
-      ['compose', '--project-name', PROJECT_NAME, '--env-file', ENV_FILE, '-f', COMPOSE_FILE, ...args],
+      [
+        'compose',
+        '--project-name',
+        PROJECT_NAME,
+        '--env-file',
+        ENV_FILE,
+        '-f',
+        COMPOSE_FILE,
+        ...args,
+      ],
       {
         cwd: REPO_ROOT,
         env: COMPOSE_ENV,

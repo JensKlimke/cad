@@ -71,13 +71,13 @@ export function ConfirmDeleteDialog({
         <p className="workspace-dialog__warning">{t('delete_dialog.warning')}</p>
         <label className="workspace-dialog__field">
           <span>{t('delete_dialog.confirm_label')}</span>
-        <input
-          type="text"
-          value={typed}
-          onChange={(event) => setTyped(event.target.value)}
-          placeholder={resourceName}
-          data-testid="confirm-delete-dialog-input"
-        />
+          <input
+            type="text"
+            value={typed}
+            onChange={(event) => setTyped(event.target.value)}
+            placeholder={resourceName}
+            data-testid="confirm-delete-dialog-input"
+          />
         </label>
         <div className="workspace-dialog__actions">
           <button
@@ -86,16 +86,16 @@ export function ConfirmDeleteDialog({
             onClick={onClose}
           >
             {t('dialog.cancel')}
-        </button>
-        <button
-          type="button"
-          className="workspace-button workspace-button--danger"
-          disabled={typed !== resourceName || submitting}
-          onClick={() => void handleConfirm()}
-          data-testid="confirm-delete-dialog-submit"
-        >
-          {t('delete_dialog.submit')}
-        </button>
+          </button>
+          <button
+            type="button"
+            className="workspace-button workspace-button--danger"
+            disabled={typed !== resourceName || submitting}
+            onClick={() => void handleConfirm()}
+            data-testid="confirm-delete-dialog-submit"
+          >
+            {t('delete_dialog.submit')}
+          </button>
         </div>
       </div>
     </dialog>

@@ -84,18 +84,16 @@ interface Catalog {
   readonly searchByLocale: Readonly<Record<Locale, MiniSearch<SearchDocument>>>;
 }
 
-const HANDOOK_ROOT = path.resolve(
-  path.dirname(fileURLToPath(import.meta.url)),
-  '..',
-  'content',
-);
+const HANDOOK_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'content');
 
 let catalogPromise: Promise<Catalog> | null = null;
 
-export async function listTopics(options: {
-  readonly locale?: Locale;
-  readonly kind?: HandbookKind;
-} = {}): Promise<HandbookPageSummary[]> {
+export async function listTopics(
+  options: {
+    readonly locale?: Locale;
+    readonly kind?: HandbookKind;
+  } = {},
+): Promise<HandbookPageSummary[]> {
   const requestedLocale = options.locale ?? 'en';
   const catalog = await loadCatalog();
   const seen = new Set<string>();
@@ -202,7 +200,9 @@ async function buildCatalog(): Promise<Catalog> {
   const pageEntries = await Promise.all(
     SUPPORTED_LOCALES.map(async (locale) => [locale, await loadPagesForLocale(locale)] as const),
   );
-  const pagesByLocale = Object.fromEntries(pageEntries) as Readonly<Record<Locale, ReadonlyMap<string, CatalogPage>>>;
+  const pagesByLocale = Object.fromEntries(pageEntries) as Readonly<
+    Record<Locale, ReadonlyMap<string, CatalogPage>>
+  >;
   const searchByLocale = Object.fromEntries(
     SUPPORTED_LOCALES.map((locale) => [locale, buildSearchIndex(pagesByLocale[locale])]),
   ) as Readonly<Record<Locale, MiniSearch<SearchDocument>>>;
@@ -349,8 +349,10 @@ async function compileHtml(source: string): Promise<string> {
 }
 
 function decorateCodeBlocks(html: string): string {
-  return html.replaceAll(
-    '<pre><code',
-    '<div class="handbook-code-block"><div class="handbook-code-toolbar"><button type="button" class="handbook-copy-button" data-copy-code>Copy</button></div><pre><code',
-  ).replaceAll('</pre>', '</pre></div>');
+  return html
+    .replaceAll(
+      '<pre><code',
+      '<div class="handbook-code-block"><div class="handbook-code-toolbar"><button type="button" class="handbook-copy-button" data-copy-code>Copy</button></div><pre><code',
+    )
+    .replaceAll('</pre>', '</pre></div>');
 }

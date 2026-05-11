@@ -184,9 +184,10 @@ export function Viewport({
       return;
     }
     const testRoot = root as {
-      __cadSelectReference?: (
-        selection?: { readonly kind?: SelectionFilter; readonly index?: number },
-      ) => void;
+      __cadSelectReference?: (selection?: {
+        readonly kind?: SelectionFilter;
+        readonly index?: number;
+      }) => void;
     };
     testRoot.__cadSelectReference = (nextSelection = {}) => {
       applyReferenceSelection({

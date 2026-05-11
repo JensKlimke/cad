@@ -10,8 +10,7 @@ export default defineConfig({
     include: ['test/**/*.test.ts'],
     coverage: {
       ...preset.test?.coverage,
-      exclude:
-        preset.test?.coverage?.exclude?.filter((pattern) => pattern !== '**/index.ts') ?? [],
+      exclude: preset.test?.coverage?.exclude?.filter((pattern) => pattern !== '**/index.ts') ?? [],
     },
   },
 });

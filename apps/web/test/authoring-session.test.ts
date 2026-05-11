@@ -38,7 +38,7 @@ describe('authoring session history', () => {
   it('tracks snapshots and restores them through undo and redo', () => {
     const parsed = parseAuthoringSource(SOURCE);
     const session = createAuthoringSessionState(SOURCE, parsed, null);
-    const editedSource = SOURCE.replace("value: 10", "value: 12");
+    const editedSource = SOURCE.replace('value: 10', 'value: 12');
     const editedSnapshot = createAuthoringSnapshot(
       editedSource,
       parseAuthoringSource(editedSource),
@@ -47,15 +47,15 @@ describe('authoring session history', () => {
     );
 
     const withEdit = pushAuthoringSnapshot(session, editedSnapshot);
-    expect(withEdit.present.source).toContain("value: 12");
+    expect(withEdit.present.source).toContain('value: 12');
     expect(withEdit.past).toHaveLength(1);
 
     const undone = undoAuthoringSession(withEdit);
-    expect(undone.present.source).toContain("value: 10");
+    expect(undone.present.source).toContain('value: 10');
     expect(undone.future).toHaveLength(1);
 
     const redone = redoAuthoringSession(undone);
-    expect(redone.present.source).toContain("value: 12");
+    expect(redone.present.source).toContain('value: 12');
     expect(redone.past).toHaveLength(1);
   });
 

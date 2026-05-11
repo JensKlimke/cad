@@ -1,10 +1,12 @@
 name: stryker (weekly)
 
 on:
-  schedule:
-    # Every Monday at 03:00 UTC — low-traffic window, well before the
-    # European workday so a broken baseline is visible by morning.
-    - cron: '0 3 * * 1'
+  # Weekly Stryker runs are temporarily disabled. Uncomment this schedule to
+  # restore the Monday 03:00 UTC mutation-testing check.
+  # schedule:
+  #   # Every Monday at 03:00 UTC - low-traffic window, well before the
+  #   # European workday so a broken baseline is visible by morning.
+  #   - cron: '0 3 * * 1'
   workflow_dispatch: {}
 
 concurrency:

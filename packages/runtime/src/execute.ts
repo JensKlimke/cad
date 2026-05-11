@@ -47,13 +47,17 @@ export async function executeDocument(
     const timer = setTimeout(() => {
       void worker.terminate();
       reject(
-        runtimeError('runtime.timeout', `Document build exceeded timeout of ${resolved.timeoutMs} ms.`, [
-          {
-            code: 'runtime.timeout',
-            message: `Document build exceeded timeout of ${resolved.timeoutMs} ms.`,
-            context: { timeoutMs: resolved.timeoutMs },
-          },
-        ]),
+        runtimeError(
+          'runtime.timeout',
+          `Document build exceeded timeout of ${resolved.timeoutMs} ms.`,
+          [
+            {
+              code: 'runtime.timeout',
+              message: `Document build exceeded timeout of ${resolved.timeoutMs} ms.`,
+              context: { timeoutMs: resolved.timeoutMs },
+            },
+          ],
+        ),
       );
     }, resolved.timeoutMs);
 
@@ -64,18 +68,24 @@ export async function executeDocument(
         resolve(message.result);
         return;
       }
-      reject(new RuntimeBuildError(message.error.code, message.error.message, message.error.diagnostics));
+      reject(
+        new RuntimeBuildError(message.error.code, message.error.message, message.error.diagnostics),
+      );
     });
     worker.once('error', (error) => {
       clearTimeout(timer);
       void worker.terminate();
       reject(
-        runtimeError('runtime.worker_error', error instanceof Error ? error.message : String(error), [
-          {
-            code: 'runtime.worker_error',
-            message: error instanceof Error ? error.message : String(error),
-          },
-        ]),
+        runtimeError(
+          'runtime.worker_error',
+          error instanceof Error ? error.message : String(error),
+          [
+            {
+              code: 'runtime.worker_error',
+              message: error instanceof Error ? error.message : String(error),
+            },
+          ],
+        ),
       );
     });
     worker.postMessage({

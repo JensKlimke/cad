@@ -30,7 +30,16 @@ const COMPOSE_ENV = {
 async function runDockerCompose(args: readonly string[]): Promise<void> {
   await execFileAsync(
     'docker',
-    ['compose', '--project-name', PROJECT_NAME, '--env-file', ENV_FILE, '-f', COMPOSE_FILE, ...args],
+    [
+      'compose',
+      '--project-name',
+      PROJECT_NAME,
+      '--env-file',
+      ENV_FILE,
+      '-f',
+      COMPOSE_FILE,
+      ...args,
+    ],
     {
       cwd: REPO_ROOT,
       env: COMPOSE_ENV,
@@ -133,7 +142,9 @@ describe('compose stack', () => {
       },
     });
     expect(projectsResponse.status).toBe(200);
-    const projectsBody = (await projectsResponse.json()) as { items: Array<{ id: string; name: string }> };
+    const projectsBody = (await projectsResponse.json()) as {
+      items: Array<{ id: string; name: string }>;
+    };
     expect(projectsBody.items).toEqual(
       expect.arrayContaining([expect.objectContaining({ id: project.id, name: project.name })]),
     );
@@ -145,14 +156,20 @@ describe('compose stack', () => {
       },
     });
     expect(persistedDocumentResponse.status).toBe(200);
-    const persistedDocument = (await persistedDocumentResponse.json()) as { id: string; name: string };
+    const persistedDocument = (await persistedDocumentResponse.json()) as {
+      id: string;
+      name: string;
+    };
     expect(persistedDocument).toMatchObject({ id: document.id, name: document.name });
 
-    const viewportResponse = await fetch(`${BASE_URL}/projects/${project.id}/documents/${document.id}`, {
-      headers: {
-        cookie: nextSessionCookie,
+    const viewportResponse = await fetch(
+      `${BASE_URL}/projects/${project.id}/documents/${document.id}`,
+      {
+        headers: {
+          cookie: nextSessionCookie,
+        },
       },
-    });
+    );
     expect(viewportResponse.status).toBe(200);
     const viewportHtml = await viewportResponse.text();
     expect(viewportHtml).toContain('<div id="root"></div>');

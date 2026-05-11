@@ -52,13 +52,13 @@ Slices 0, 1, 2.
 
 ## Key Decisions
 
-| Concern           | Choice                                            | Reason                                                         |
-| ----------------- | ------------------------------------------------- | -------------------------------------------------------------- |
-| Three.js wrapper  | Raw three.js                                      | PLAN.md commitment; R3F adds abstraction cost we don't need    |
-| Camera controller | Custom (no OrbitControls)                         | OrbitControls isn't trackpad-native; we need profile switching |
-| Picking           | GPU color-id (second render target)               | Reliable across complex geometry; scales to big scenes         |
-| Viewport state    | Zustand with per-document persistence             | Matches PLAN.md; localStorage for now, server-synced later     |
-| Transport         | SSE document event stream + cache refresh         | Already implemented cleanly in Slice 3; enough for low-latency updates |
+| Concern           | Choice                                    | Reason                                                                 |
+| ----------------- | ----------------------------------------- | ---------------------------------------------------------------------- |
+| Three.js wrapper  | Raw three.js                              | PLAN.md commitment; R3F adds abstraction cost we don't need            |
+| Camera controller | Custom (no OrbitControls)                 | OrbitControls isn't trackpad-native; we need profile switching         |
+| Picking           | GPU color-id (second render target)       | Reliable across complex geometry; scales to big scenes                 |
+| Viewport state    | Zustand with per-document persistence     | Matches PLAN.md; localStorage for now, server-synced later             |
+| Transport         | SSE document event stream + cache refresh | Already implemented cleanly in Slice 3; enough for low-latency updates |
 
 ## Testing Strategy
 

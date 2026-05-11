@@ -50,9 +50,9 @@ export function pushAuthoringSnapshot(
   snapshot: AuthoringSnapshot,
 ): AuthoringSessionState {
   if (
-    snapshot.source === state.present.source
-    && snapshot.parseError === state.present.parseError
-    && sameSelection(snapshot.selection, state.present.selection)
+    snapshot.source === state.present.source &&
+    snapshot.parseError === state.present.parseError &&
+    sameSelection(snapshot.selection, state.present.selection)
   ) {
     return {
       ...state,

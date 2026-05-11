@@ -45,7 +45,7 @@ const documentEventsPlugin: FastifyPluginAsync = async (fastify) => {
         }
       };
     },
-} satisfies DocumentEventsService);
+  } satisfies DocumentEventsService);
 };
 
 export default fp(documentEventsPlugin, {

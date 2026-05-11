@@ -43,14 +43,14 @@ describe('@cad/sketch', () => {
     expect(
       resolveSketchValue(
         { kind: 'reference', name: 'width' },
-        { width: { value: 42, unit: 'mm', source: { kind: 'number', value: 42, unit: 'mm' } } },
+        { width: { value: 42, unit: 'mm' } },
         10,
       ),
     ).toBe(42);
     expect(
       resolveSketchValue(
         { kind: 'expression', source: 'width * 2', unit: 'mm' },
-        { width: { value: 21, unit: 'mm', source: { kind: 'number', value: 21, unit: 'mm' } } },
+        { width: { value: 21, unit: 'mm' } },
         10,
       ),
     ).toBe(42);

@@ -28,7 +28,12 @@ import {
   UlidSchema,
   UpdateDocumentRequestSchema,
 } from '@cad/protocol';
-import { executeDocument, exportBuildResultAsStl, RuntimeBuildError, type RuntimeBuildResult } from '@cad/runtime';
+import {
+  executeDocument,
+  exportBuildResultAsStl,
+  RuntimeBuildError,
+  type RuntimeBuildResult,
+} from '@cad/runtime';
 import { z } from 'zod';
 
 import { ApiError, buildFailed, notFound, unauthorized } from '../../errors.js';
@@ -135,6 +140,7 @@ function serializeBuildResponse(
               pad: feature.pad,
             },
       ),
+      topology: build.topology,
       tessellation:
         build.tessellation === null
           ? null
@@ -423,6 +429,7 @@ export const documentsRoutes: FastifyPluginAsyncZod = async (fastify) => {
         'cache-control': 'no-cache, no-transform',
         connection: 'keep-alive',
         'content-type': 'text/event-stream; charset=utf-8',
+        'x-accel-buffering': 'no',
       });
       reply.raw.write(': connected\n\n');
 

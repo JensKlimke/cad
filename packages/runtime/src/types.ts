@@ -1,5 +1,11 @@
 import type { ParameterEvaluationResult, Quantity } from '@cad/expr';
-import type { RectangleSketchConstraints, RectangleSketchGeometry, SketchConstraintStatus, SketchPlane } from '@cad/sketch';
+import type { Topology } from '@cad/references';
+import type {
+  RectangleSketchConstraints,
+  RectangleSketchGeometry,
+  SketchConstraintStatus,
+  SketchPlane,
+} from '@cad/sketch';
 
 export interface RuntimeOptions {
   readonly timeoutMs?: number;
@@ -70,6 +76,7 @@ export interface RuntimeBuildResult {
   readonly parameters: ParameterEvaluationResult['values'];
   readonly parameterOrder: readonly string[];
   readonly features: readonly RuntimeFeatureResult[];
+  readonly topology: Topology;
   readonly tessellation: JsonTessellation | null;
 }
 

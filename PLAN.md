@@ -457,10 +457,11 @@ Picks survive feature edits.
 
 - Formalize `Handle/Selector` in `packages/references`
 - Three-layer resolver: finder → construction → hash
-- UI picker records finder queries from user clicks
-- Edit earlier feature, verify downstream picks still resolve
-- Reference repair wizard when resolution fails
-  **Ships**: Pick a face, edit earlier feature, downstream fillet still points at the right face.
+- Runtime emits stable sketch + pad topology with semantic construction paths
+- UI picker records stable handles from face clicks
+- Edit earlier dimensions, verify semantic pad faces still resolve
+- Reference repair ranking available when resolution fails
+  **Ships**: Pick a pad face, edit an earlier dimension/sketch input, rebuild, and the same semantic face still resolves. Fillet/chamfer consumers land in Slice 8.
 
 ### Slice 8 — Core Feature Library
 

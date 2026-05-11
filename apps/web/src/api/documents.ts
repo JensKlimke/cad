@@ -81,6 +81,11 @@ export function useBuildDocument(id: string) {
       }),
     onSuccess: async (build) => {
       queryClient.setQueryData(documentBuildQueryKey(id), build);
+      queryClient.setQueryData(documentBuildStreamStateQueryKey(id), {
+        kind: 'ready',
+        documentId: build.documentId,
+        hash: build.build.tessellation?.metadata.hash ?? build.build.documentHash,
+      } satisfies DocumentBuildStreamState);
     },
   });
 }

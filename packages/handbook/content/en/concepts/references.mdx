@@ -1,0 +1,31 @@
+---
+title: References
+summary: Stable handles let geometry picks survive rebuilds and upstream edits.
+tags:
+  - concepts
+  - references
+  - handles
+---
+
+# References
+
+CAD models should not depend on raw mesh indices. A face that is triangle `17` in one build might be triangle `21` after a parameter edit.
+
+This project records geometry picks as `Handle` objects. A handle contains selectors tried in this order:
+
+1. `finder` — semantic query from the picked entity.
+2. `construction` — feature-owned path such as `pad_1.face.top`.
+3. `hash` — quantized geometric signature.
+
+The current Slice 7 surface emits stable topology for sketches and pads. Later feature operations reuse the same handle model.
+
+```ts
+handle({
+  id: 'handle:pad_1.face.top',
+  entityKind: 'face',
+  label: 'Top face',
+  selectors: [{ kind: 'construction', featureId: 'pad_1', path: 'pad_1.face.top' }],
+});
+```
+
+If a handle cannot be resolved, the repair flow ranks candidate entities by feature, construction path, normal, centroid, and area similarity.

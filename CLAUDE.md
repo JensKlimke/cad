@@ -42,16 +42,16 @@ deploy/
 
 ### Slice 1 wave status
 
-| Wave | Content | Status |
-|------|---------|--------|
-| A | Foundation — protocol schemas, db schema, Docker Compose infra | shipped (`9f6c94e`) |
-| B1 | DB migrations + repositories + integration tests | shipped (`d981f23`) |
-| B2 | Server bootstrap + plugins + auth service | shipped (`d027b2a`) |
-| C | Server API surface — auth/projects/documents routes | shipped (`a19aad0`) |
-| D | Web UI — React Router + auth flow + project list | shipped (`f9ec95a`) |
-| E1 | API e2e suite + seedOnFirstBoot wiring + error handler fixes | shipped (`e101fde`) |
-| E2 | Playwright lifecycle, Dockerfiles, compose integration test | shipped |
-| F | Verification doc, retro, CI extensions | shipped |
+| Wave | Content                                                        | Status              |
+| ---- | -------------------------------------------------------------- | ------------------- |
+| A    | Foundation — protocol schemas, db schema, Docker Compose infra | shipped (`9f6c94e`) |
+| B1   | DB migrations + repositories + integration tests               | shipped (`d981f23`) |
+| B2   | Server bootstrap + plugins + auth service                      | shipped (`d027b2a`) |
+| C    | Server API surface — auth/projects/documents routes            | shipped (`a19aad0`) |
+| D    | Web UI — React Router + auth flow + project list               | shipped (`f9ec95a`) |
+| E1   | API e2e suite + seedOnFirstBoot wiring + error handler fixes   | shipped (`e101fde`) |
+| E2   | Playwright lifecycle, Dockerfiles, compose integration test    | shipped             |
+| F    | Verification doc, retro, CI extensions                         | shipped             |
 
 Slice 1 is closed enough to treat as the working baseline. New implementation work should start from Slice 2 unless the task is explicitly a Slice 1 fixup.
 
@@ -67,6 +67,7 @@ Slice 1 is closed enough to treat as the working baseline. New implementation wo
 - **Testcontainers harness** — `tests/api/src/createApiTestContext.ts` boots Postgres + MinIO, installs citext+pgcrypto extensions, runs migrations, builds app, queries seeded workspace+admin. ~4s per context. Each spec file owns its own context; teardown is reverse-order with try/catch.
 - **Compose-backed system verification** — `tests/compose` boots the full Docker Compose stack on isolated host ports, verifies `/health` + `/ready`, creates a project/document, restarts the stack, and confirms persistence.
 - **Playwright lifecycle harness** — `tests/e2e` boots the compose stack in global setup, runs the login → create project → open document flow in `en` and `de`, and asserts the viewport tessellation hash on the document route.
+- **Reference handles** — Slice 7 introduces `@cad/references`, runtime-emitted sketch/pad topology, and finder → construction → hash resolution. Viewport face picks record stable handles instead of relying on raw mesh indices.
 
 ## Hard architectural constraints
 

@@ -130,7 +130,10 @@ async function login(
     await page.getByTestId('login-email').fill(ADMIN_EMAIL);
     await page.getByTestId('login-password').fill(ADMIN_PASSWORD);
     await page.getByTestId('login-submit').click();
-    return page.waitForURL(/\/projects$/u, { timeout: 15_000 }).then(() => true).catch(() => false);
+    return page
+      .waitForURL(/\/projects$/u, { timeout: 15_000 })
+      .then(() => true)
+      .catch(() => false);
   }
 
   const firstAttempt = await attemptLogin();
@@ -220,7 +223,9 @@ function currentProjectId(page: Page): string {
   return projectId;
 }
 
-async function triggerRemoteBuild(page: Page): Promise<{ readonly ok: boolean; readonly status: number }> {
+async function triggerRemoteBuild(
+  page: Page,
+): Promise<{ readonly ok: boolean; readonly status: number }> {
   const documentId = currentDocumentId(page);
   return page.evaluate(async (id) => {
     const response = await fetch(`/api/documents/${id}/build`, {
@@ -270,6 +275,21 @@ async function waitForBuildIdle(page: Page): Promise<void> {
   await expect.poll(async () => page.getByTestId('document-build').textContent()).toBe('Build');
 }
 
+async function selectViewportReference(page: Page): Promise<void> {
+  await page.getByTestId('viewport-root').evaluate((node) => {
+    const selectReference = (node as {
+      __cadSelectReference?: (selection?: { readonly kind?: string; readonly index?: number }) => void;
+    }).__cadSelectReference;
+    if (typeof selectReference !== 'function') {
+      throw new TypeError('viewport reference test hook is not available');
+    }
+    selectReference({ kind: 'face', index: 0 });
+  });
+  await expect
+    .poll(async () => page.getByTestId('viewport-root').evaluate((node) => node.dataset['referenceLayer']))
+    .toBe('finder');
+}
+
 async function selectInspectorParameter(page: Page, parameterId: string): Promise<void> {
   await page.getByTestId(`authoring-parameter-${parameterId}`).click();
   await expect(page.getByTestId('document-inspector-parameter')).toBeVisible();
@@ -301,7 +321,10 @@ for (const { locale, loginTitle } of LOCALE_CASES) {
 }
 
 test.describe('document workspace', () => {
-  test('edits source, saves, rebuilds, and updates the viewport hash', async ({ page, context }) => {
+  test('edits source, saves, rebuilds, and updates the viewport hash', async ({
+    page,
+    context,
+  }) => {
     const { consoleErrors, pageErrors } = await attachErrorCollectors(page);
     await login(page, context, 'en', 'Sign in');
     await createProjectAndOpen(page, `E2E edit ${Date.now()}`);
@@ -314,7 +337,9 @@ test.describe('document workspace', () => {
     await expect
       .poll(async () => viewport.evaluate((node) => node.dataset.tessellationHash ?? null))
       .not.toBe(EXPECTED_HASH);
-    await expect(page.getByTestId('document-build-status')).toContainText('Build ready. Tessellation hash');
+    await expect(page.getByTestId('document-build-status')).toContainText(
+      'Build ready. Tessellation hash',
+    );
 
     expect(pageErrors).toEqual([]);
     expect(consoleErrors).toEqual([]);
@@ -330,30 +355,45 @@ test.describe('document workspace', () => {
     const viewport = await createDocumentAndWaitForViewport(page);
     const originalHash = await viewport.evaluate((node) => node.dataset.tessellationHash ?? null);
 
+    await selectViewportReference(page);
+    await expect(page.getByTestId('reference-resolver-layer')).toContainText('Resolved by finder');
+
     await selectInspectorParameter(page, 'parameter_1');
     await expect(page.getByTestId('document-inspector-parameter')).toContainText('width');
     await page.getByTestId('document-inspector-parameter-value').fill('14');
     await page.getByTestId('document-inspector-save-parameter').click();
 
-    await expect.poll(() => readDocumentSource(page)).toContain("width: { kind: 'number', value: 14, unit: 'mm' }");
+    await expect
+      .poll(() => readDocumentSource(page))
+      .toContain("width: { kind: 'number', value: 14, unit: 'mm' }");
 
     await page.getByTestId('document-undo').click();
-    await expect.poll(() => readDocumentSource(page)).toContain("width: { kind: 'number', value: 10, unit: 'mm' }");
+    await expect
+      .poll(() => readDocumentSource(page))
+      .toContain("width: { kind: 'number', value: 10, unit: 'mm' }");
 
     await page.getByTestId('document-redo').click();
-    await expect.poll(() => readDocumentSource(page)).toContain("width: { kind: 'number', value: 14, unit: 'mm' }");
+    await expect
+      .poll(() => readDocumentSource(page))
+      .toContain("width: { kind: 'number', value: 14, unit: 'mm' }");
 
     await page.getByTestId('document-build').click();
     await waitForBuildIdle(page);
     await expect
       .poll(async () => viewport.evaluate((node) => node.dataset.tessellationHash ?? null))
       .not.toBe(originalHash);
+    await expect(page.getByTestId('reference-resolver-layer')).toContainText(
+      'Resolved by construction',
+    );
 
     expect(pageErrors).toEqual([]);
     expect(consoleErrors).toEqual([]);
   });
 
-  test('supports sketch mode dimension edits and rebuild of the active document', async ({ page, context }) => {
+  test('supports sketch mode dimension edits and rebuild of the active document', async ({
+    page,
+    context,
+  }) => {
     const { consoleErrors, pageErrors } = await attachErrorCollectors(page);
     await login(page, context, 'en', 'Sign in');
     await createProjectAndOpen(page, `E2E sketch ${Date.now()}`);
@@ -370,7 +410,9 @@ test.describe('document workspace', () => {
     await expect(page.getByTestId('sketch-width-literal')).toHaveValue('26');
     await expect(page.getByTestId('sketch-preview-size')).toContainText('26 × 20 mm');
     await page.getByTestId('sketch-apply-bindings').click();
-    await expect.poll(() => readDocumentSource(page)).toContain("width: { kind: 'literal', value: 26, unit: 'mm' }");
+    await expect
+      .poll(() => readDocumentSource(page))
+      .toContain("width: { kind: 'literal', value: 26, unit: 'mm' }");
     await page.getByTestId('sketch-exit').click();
 
     await page.getByTestId('document-build').click();
@@ -379,7 +421,7 @@ test.describe('document workspace', () => {
       .poll(async () => viewport.evaluate((node) => node.dataset.tessellationHash ?? null))
       .not.toBe(originalHash);
 
-    expect(await readDocumentSource(page)).toContain("sketch({");
+    expect(await readDocumentSource(page)).toContain('sketch({');
     expect(pageErrors).toEqual([]);
     expect(consoleErrors).toEqual([]);
   });
@@ -396,7 +438,9 @@ test.describe('document workspace', () => {
     await page.getByTestId('document-build').click();
 
     await expect(page.getByTestId('document-diagnostics')).toBeVisible();
-    await expect(page.getByTestId('document-diagnostics')).toContainText('runtime.unsupported_import');
+    await expect(page.getByTestId('document-diagnostics')).toContainText(
+      'runtime.unsupported_import',
+    );
     await expect(page.getByTestId('document-diagnostics')).toContainText(
       'Only "@cad/sdk" imports are allowed in document.ts, received "node:fs".',
     );
@@ -441,8 +485,12 @@ test.describe('document workspace', () => {
     expect(failedBuild.status).toBe(422);
 
     await expect(page.getByTestId('document-build-status')).toContainText('Build failed');
-    await expect(page.getByTestId('document-diagnostics')).toContainText('runtime.unknown_parameter');
-    await expect(page.getByTestId('document-viewport-summary')).toContainText('latest streamed build failed');
+    await expect(page.getByTestId('document-diagnostics')).toContainText(
+      'runtime.unknown_parameter',
+    );
+    await expect(page.getByTestId('document-viewport-summary')).toContainText(
+      'latest streamed build failed',
+    );
     await expect
       .poll(async () => viewport.evaluate((node) => node.dataset.tessellationHash ?? null))
       .toBe(originalHash);
@@ -490,12 +538,14 @@ test.describe('document workspace', () => {
     await expect(viewportRoot).toHaveAttribute('data-selection-filter', 'edge');
     await expect(viewportStatusbar).toContainText('Right');
 
-    await expect.poll(() => readViewportPersistence(page, firstDocumentId)).toEqual({
-      projection: 'orthographic',
-      namedView: 'right',
-      visualStyle: 'wireframe',
-      selectionFilter: 'edge',
-    });
+    await expect
+      .poll(() => readViewportPersistence(page, firstDocumentId))
+      .toEqual({
+        projection: 'orthographic',
+        namedView: 'right',
+        visualStyle: 'wireframe',
+        selectionFilter: 'edge',
+      });
 
     await page.reload();
     await expect(page.getByTestId('document-source-editor')).toBeVisible();

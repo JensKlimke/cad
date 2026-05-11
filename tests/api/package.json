@@ -14,6 +14,7 @@
   "dependencies": {
     "@cad/db": "workspace:*",
     "@cad/protocol": "workspace:*",
+    "@cad/references": "workspace:*",
     "@cad/server": "workspace:*",
     "fastify": "^5.8.5",
     "fastify-type-provider-zod": "^6.1.0",

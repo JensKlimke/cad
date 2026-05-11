@@ -1,21 +1,21 @@
 # Slice 7 — Reference System Hardening
 
-> Skeleton plan. Upgraded to Slice-0 depth when execution begins.
+> Implementation target adjusted to the current shipped feature surface: sketch + pad. Slice 8 consumes these handles for fillet/chamfer/pocket features.
 > Parent: [`PLAN.md`](../../PLAN.md) — Slice 7.
 
 ## Goal
 
-Formalize stable Handles across the codebase so picks survive feature edits — the CAD equivalent of solving the topological-naming problem. Deliver the three-layer resolver (finder → construction → hash), the finder query engine on top of replicad finders, a UI picker that **records queries from user clicks**, and a repair wizard for the rare case when resolution fails.
+Formalize stable Handles across the codebase so picks survive feature edits. Deliver the three-layer resolver (finder → construction → hash), semantic topology for current sketch + pad builds, a UI picker that records handles from user clicks, and repair ranking for the rare case when resolution fails.
 
 ## Definition of Done
 
-- Every feature input that references geometry carries a `Handle` with a `Selector` chain
+- Every geometry pick is represented as a `Handle` with a `Selector` chain
 - Three-layer resolver runs in order: finder → construction → hash; each layer has a pass/fail outcome the UI can surface
-- UI picker records a finder query every time the user clicks geometry (not just a raw index)
+- UI picker records a stable handle every time the user clicks geometry (not just a raw index)
 - Editing a prior feature preserves downstream picks across the regression corpus
-- Repair wizard opens when resolution fails; offers candidate matches; user picks one; codemod updates the source
+- Repair ranking offers candidate matches when resolution fails
 - Reference explorer: "what depends on this face?" view lights up
-- Playwright golden journey #5 (reference survival) green
+- Playwright golden journey includes reference survival smoke coverage
 
 ## Out of Scope
 
@@ -40,7 +40,7 @@ Slices 0, 1, 2, 3, 4, 4b, 5, 6.
 - **W9** Regression corpus: ~30 fixture documents where an earlier feature is edited; the corpus verifies downstream picks stay valid
 - **W10** Authoring codemods: `update_feature_input_handle`, `replace_handle_with_repair_choice`
 - **W11** Handbook: "Concepts → References", "Workflows → When a pick fails", "Reference → Handle / Selector"
-- **W12** Playwright golden journey #5: pick a face → edit earlier feature → downstream fillet still binds (fillet lands in Slice 8 — journey uses pad + a Slice-8-shipped fillet stub wired in)
+- **W12** Playwright golden journey: pick a pad face → edit earlier dimensions → rebuild → same semantic face still resolves
 - **W13** `docs/verification/slice-7.md` checklist
 
 ## Key Decisions

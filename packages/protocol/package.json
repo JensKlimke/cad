@@ -25,6 +25,7 @@
     "lint": "eslint ."
   },
   "dependencies": {
+    "@cad/references": "workspace:*",
     "zod": "^4.3.6"
   },
   "devDependencies": {

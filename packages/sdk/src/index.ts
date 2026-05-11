@@ -1,4 +1,5 @@
 import type { ParameterDefinition, Unit } from '@cad/expr';
+import type { EntityKind, Handle, Selector } from '@cad/references';
 import type { RectangleSketchConstraints, SketchPlane } from '@cad/sketch';
 export { docMetadata, ops, type SdkOpDocMetadata, type SdkOpId } from './ops.js';
 
@@ -62,7 +63,9 @@ export interface DocumentDefinition {
   readonly body: BodyDefinition;
 }
 
-export function parameters(entries: Readonly<Record<string, ParameterDefinition>>): ParameterCollection {
+export function parameters(
+  entries: Readonly<Record<string, ParameterDefinition>>,
+): ParameterCollection {
   return {
     kind: 'parameters',
     entries,
@@ -133,6 +136,20 @@ export function feature(id: string): FeatureReference {
   return { kind: 'feature', id };
 }
 
+export function handle(input: {
+  readonly id: string;
+  readonly entityKind: EntityKind;
+  readonly selectors: readonly Selector[];
+  readonly label?: string;
+}): Handle {
+  return {
+    id: input.id,
+    entityKind: input.entityKind,
+    selectors: [...input.selectors],
+    ...(input.label === undefined ? {} : { label: input.label }),
+  };
+}
+
 function normalizeScalarInput(input: ScalarInput | number | string): ScalarInput {
   if (typeof input === 'number') {
     return literal(input, 'mm');
@@ -151,4 +168,12 @@ function normalizeFeatureReference(input: FeatureReference | string): FeatureRef
 }
 
 export type { ParameterDefinition, Unit } from '@cad/expr';
+export type {
+  EntityKind,
+  FinderQuery,
+  Handle,
+  Selector,
+  Topology,
+  TopologyEntity,
+} from '@cad/references';
 export type { RectangleSketchConstraints, SketchConstraintValue, SketchPlane } from '@cad/sketch';

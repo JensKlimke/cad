@@ -46,9 +46,11 @@ class FakeEventSource {
 }
 
 vi.mock('../src/viewport/Viewport.js', () => ({
-  Viewport: ({ tessellation }: { readonly tessellation?: { readonly metadata: { readonly hash: string } } }) => (
-    <div data-testid="mock-viewport">{tessellation?.metadata.hash ?? 'no-hash'}</div>
-  ),
+  Viewport: ({
+    tessellation,
+  }: {
+    readonly tessellation?: { readonly metadata: { readonly hash: string } };
+  }) => <div data-testid="mock-viewport">{tessellation?.metadata.hash ?? 'no-hash'}</div>,
 }));
 
 vi.mock('../src/components/DocumentSourceEditor.js', () => ({
@@ -63,16 +65,20 @@ vi.mock('../src/components/DocumentSourceEditor.js', () => ({
     ref: ForwardedRef<{ focusRange(start: number, end: number): void; focusStart(): void }>,
   ) {
     const inputReference = useRef<HTMLTextAreaElement | null>(null);
-    useImperativeHandle(ref, () => ({
-      focusRange(start, end) {
-        inputReference.current?.focus();
-        inputReference.current?.setSelectionRange(start, end);
-      },
-      focusStart() {
-        inputReference.current?.focus();
-        inputReference.current?.setSelectionRange(0, 0);
-      },
-    }), []);
+    useImperativeHandle(
+      ref,
+      () => ({
+        focusRange(start, end) {
+          inputReference.current?.focus();
+          inputReference.current?.setSelectionRange(start, end);
+        },
+        focusStart() {
+          inputReference.current?.focus();
+          inputReference.current?.setSelectionRange(0, 0);
+        },
+      }),
+      [],
+    );
 
     return (
       <textarea
@@ -130,7 +136,8 @@ function requestMethod(input: RequestInfo | URL, init?: RequestInit): string {
 const BUILD_RESPONSE = {
   documentId: '01HQ8K3VBRZ8XGRGY5T0WJD8AF',
   artifactKey: 'builds/01HQ8K3VBRZ8XGRGY5T0WJD8AF/01HQ8K3VBRZ8XGRGY5T0WJD8AG.json',
-  artifactUrl: 'https://minio.test/builds/01HQ8K3VBRZ8XGRGY5T0WJD8AF/01HQ8K3VBRZ8XGRGY5T0WJD8AG.json',
+  artifactUrl:
+    'https://minio.test/builds/01HQ8K3VBRZ8XGRGY5T0WJD8AF/01HQ8K3VBRZ8XGRGY5T0WJD8AG.json',
   artifactExpiresAt: '2026-04-18T12:00:00.000Z',
   build: {
     documentHash: 'a'.repeat(64),
@@ -184,6 +191,25 @@ const BUILD_RESPONSE = {
         pad: { sketch: 'sketch_1', length: 30, direction: 'up' },
       },
     ],
+    topology: {
+      entities: [
+        {
+          id: 'pad_1.face.top',
+          kind: 'face',
+          featureId: 'pad_1',
+          constructionPath: 'pad_1.face.top',
+          label: 'Top face',
+          centroid: [5, 10, 30],
+          normal: [0, 0, 1],
+          area: 200,
+          zRange: [30, 30],
+          hash: {
+            value: 'd'.repeat(64),
+            quantization: 1e-6,
+          },
+        },
+      ],
+    },
     tessellation: {
       positions: [0, 0, 0, 1, 0, 0, 0, 1, 0],
       normals: [0, 0, 1, 0, 0, 1, 0, 0, 1],
@@ -221,7 +247,9 @@ describe('<DocumentHostRoute />', () => {
         const method = requestMethod(input, init);
 
         if (url.endsWith('/auth/me')) {
-          throw new Error('DocumentHostRoute.test.tsx should not call /auth/me when AuthContext is mocked.');
+          throw new Error(
+            'DocumentHostRoute.test.tsx should not call /auth/me when AuthContext is mocked.',
+          );
         }
 
         if (url.endsWith('/projects/01HQ8K3VBRZ8XGRGY5T0WJD8AH')) {
@@ -274,7 +302,9 @@ export default defineDocument({
         if (url.endsWith('/documents/01HQ8K3VBRZ8XGRGY5T0WJD8AF') && method === 'PATCH') {
           const bodyText = init?.body;
           const tsSource =
-            typeof bodyText === 'string' ? (JSON.parse(bodyText) as { readonly tsSource: string }).tsSource : '';
+            typeof bodyText === 'string'
+              ? (JSON.parse(bodyText) as { readonly tsSource: string }).tsSource
+              : '';
           return Response.json({
             id: '01HQ8K3VBRZ8XGRGY5T0WJD8AF',
             projectId: '01HQ8K3VBRZ8XGRGY5T0WJD8AH',
@@ -298,7 +328,8 @@ export default defineDocument({
                     diagnostics: [
                       {
                         code: 'runtime.unsupported_import',
-                        message: 'Only "@cad/sdk" imports are allowed in document.ts, received "node:fs".',
+                        message:
+                          'Only "@cad/sdk" imports are allowed in document.ts, received "node:fs".',
                         range: { start: 8, end: 15 },
                         path: ['imports', '0'],
                       },
@@ -315,7 +346,10 @@ export default defineDocument({
         throw new Error(`Unhandled fetch in DocumentHostRoute.test.tsx: ${method} ${url}`);
       }),
     );
-    vi.stubGlobal('confirm', vi.fn(() => false));
+    vi.stubGlobal(
+      'confirm',
+      vi.fn(() => false),
+    );
     vi.stubGlobal('EventSource', FakeEventSource);
   });
 
@@ -345,7 +379,9 @@ export default defineDocument({
     expect(screen.getByText('Build ready. Tessellation hash c3a9076d584f')).toBeDefined();
     expect(screen.getAllByText('width').length).toBeGreaterThan(0);
     expect(screen.getByText('10 mm')).toBeDefined();
-    expect(screen.getByTestId('document-save-status').textContent).toContain('Saved source is ready to build.');
+    expect(screen.getByTestId('document-save-status').textContent).toContain(
+      'Saved source is ready to build.',
+    );
     expect(screen.getByTestId('document-build-status').textContent).toContain('Build ready');
   });
 
@@ -403,7 +439,9 @@ export default defineDocument({
     fireEvent.click(screen.getByTestId('document-save'));
 
     await waitFor(() => {
-      expect(screen.getByTestId('document-save-status').textContent).toContain('All changes saved to the server.');
+      expect(screen.getByTestId('document-save-status').textContent).toContain(
+        'All changes saved to the server.',
+      );
     });
   });
 
@@ -439,7 +477,9 @@ export default defineDocument({
         "width: { kind: 'number', value: 14, unit: 'mm' }",
       );
     });
-    expect(screen.getByTestId('document-save-status').textContent).toContain('Draft updated locally');
+    expect(screen.getByTestId('document-save-status').textContent).toContain(
+      'Draft updated locally',
+    );
     expect((screen.getByTestId('document-undo') as HTMLButtonElement).disabled).toBe(false);
   });
 
@@ -463,24 +503,28 @@ export default defineDocument({
     const editor = screen.getByTestId('document-source-editor') as HTMLTextAreaElement;
     fireEvent.change(editor, {
       target: {
-        value: editor.value.replace("value: 10", "value: 14"),
+        value: editor.value.replace('value: 10', 'value: 14'),
       },
     });
 
-    expect(editor.value).toContain("value: 14");
+    expect(editor.value).toContain('value: 14');
     expect((screen.getByTestId('document-undo') as HTMLButtonElement).disabled).toBe(false);
 
     fireEvent.click(screen.getByTestId('document-undo'));
 
     await waitFor(() => {
-      expect((screen.getByTestId('document-source-editor') as HTMLTextAreaElement).value).toContain("value: 10");
+      expect((screen.getByTestId('document-source-editor') as HTMLTextAreaElement).value).toContain(
+        'value: 10',
+      );
     });
     expect((screen.getByTestId('document-redo') as HTMLButtonElement).disabled).toBe(false);
 
     fireEvent.click(screen.getByTestId('document-redo'));
 
     await waitFor(() => {
-      expect((screen.getByTestId('document-source-editor') as HTMLTextAreaElement).value).toContain("value: 14");
+      expect((screen.getByTestId('document-source-editor') as HTMLTextAreaElement).value).toContain(
+        'value: 14',
+      );
     });
     expect(screen.getByText('1 undo / 0 redo')).toBeDefined();
   });
@@ -579,7 +623,9 @@ export default defineDocument({
     expect(confirmSpy).toHaveBeenCalledWith(
       'You have unsaved document changes. Leave this page and discard the current draft?',
     );
-    expect(globalThis.location.pathname).toBe('/projects/01HQ8K3VBRZ8XGRGY5T0WJD8AH/documents/01HQ8K3VBRZ8XGRGY5T0WJD8AF');
+    expect(globalThis.location.pathname).toBe(
+      '/projects/01HQ8K3VBRZ8XGRGY5T0WJD8AH/documents/01HQ8K3VBRZ8XGRGY5T0WJD8AF',
+    );
     expect(screen.getByTestId('document-host')).toBeDefined();
   });
 
@@ -607,14 +653,18 @@ export default defineDocument({
     await waitFor(() => {
       expect(screen.getByTestId('document-diagnostics')).toBeDefined();
     });
-    expect(screen.getByTestId('document-diagnostics').textContent).toContain('runtime.unsupported_import');
+    expect(screen.getByTestId('document-diagnostics').textContent).toContain(
+      'runtime.unsupported_import',
+    );
 
     const editor = screen.getByTestId('document-source-editor') as HTMLTextAreaElement;
     fireEvent.click(screen.getByTestId('document-diagnostic-0'));
 
     expect(editor.selectionStart).toBe(8);
     expect(editor.selectionEnd).toBe(15);
-    expect(screen.getByTestId('document-diagnostics').textContent).toContain('Line 1, columns 9-16');
+    expect(screen.getByTestId('document-diagnostics').textContent).toContain(
+      'Line 1, columns 9-16',
+    );
 
     failBuildRequest = false;
     fireEvent.click(screen.getByTestId('document-diagnostics-retry'));
@@ -740,7 +790,9 @@ export default defineDocument({
         'A streamed build failed in another session.',
       );
     });
-    expect(screen.getByTestId('document-diagnostics').textContent).toContain('runtime.unsupported_import');
+    expect(screen.getByTestId('document-diagnostics').textContent).toContain(
+      'runtime.unsupported_import',
+    );
     expect(screen.getByTestId('mock-viewport').textContent).toContain(
       'c3a9076d584ff45bacc82ee495860a8a60815b0f4f6e917edf2a6a437a427cb0',
     );

@@ -22,6 +22,7 @@
     "@cad/i18n": "workspace:*",
     "@cad/kernel": "workspace:*",
     "@cad/protocol": "workspace:*",
+    "@cad/references": "workspace:*",
     "@cad/sdk": "workspace:*",
     "@cad/sketch": "workspace:*",
     "@codemirror/commands": "^6.9.1",

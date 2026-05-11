@@ -12,6 +12,7 @@
  * server. Direct bucket URLs are never exposed.
  */
 
+import { TopologySchema } from '@cad/references';
 import { z } from 'zod';
 
 import { TimestampSchema, UlidSchema } from './common.js';
@@ -211,6 +212,7 @@ export const BuildDocumentResponseSchema = z.object({
     parameterOrder: z.array(z.string()),
     parameters: z.record(z.string(), ResolvedParameterSchema),
     features: z.array(RuntimeFeatureResultUnionSchema),
+    topology: TopologySchema,
     tessellation: JsonTessellationSchema.nullable(),
   }),
 });

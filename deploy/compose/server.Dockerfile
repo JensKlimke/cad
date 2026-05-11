@@ -12,7 +12,7 @@ COPY deploy ./deploy
 COPY .prettierrc.js eslint.config.mjs i18next.config.ts knip.json ./
 
 RUN pnpm install --frozen-lockfile
-RUN pnpm build
+RUN pnpm --filter @cad/server... build
 
 FROM node:22-bookworm-slim AS runtime
 WORKDIR /workspace

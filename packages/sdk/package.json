@@ -26,6 +26,7 @@
   },
   "dependencies": {
     "@cad/expr": "workspace:*",
+    "@cad/references": "workspace:*",
     "@cad/sketch": "workspace:*"
   },
   "devDependencies": {

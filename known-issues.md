@@ -103,33 +103,36 @@ Alternative approaches considered and rejected:
 
 **Workaround:** `packages/kernel/tsconfig.json` uses a relative `extends` path. New packages should do the same until oxc catches up. Not a blocker; the shared config is still reused via the relative path.
 
-## [P3] Vite 8 externalizes Node builtins (`node:module`, `node:url`, `node:path`, `fs`) during `apps/web` build — Web bundling
+## [P3] Vite 8 externalizes Node builtins (`node:module`, `node:url`, `node:path`, `fs`, `module`) during `apps/web` build — Web bundling
 
-**Observed:** 2026-04-12
+**Observed:** 2026-04-12; updated 2026-04-26
 **Where:** `pnpm --filter @cad/web build`
 **Affects:** `apps/web` production bundle — does not affect tests or dev
 
-**Symptom:** `vite build` prints four `[plugin rolldown:vite-resolve] Module "node:..." has been externalized for browser compatibility` warnings, originating from:
+**Symptom:** `vite build` prints `[plugin rolldown:vite-resolve] Module "node:..." has been externalized for browser compatibility` warnings, originating from:
 
 - `packages/kernel/dist/occt.js` (our own `await import('node:module')` inside the Node-only branch of `resolveDefaultLocateFile`)
 - `node_modules/.pnpm/replicad-opencascadejs@*/src/replicad_single.js` (postinstall-patched CJS-in-ESM preamble that imports `node:module`, `node:url`, `node:path`)
 - `node_modules/.pnpm/replicad@*/dist/replicad.js` (replicad's own Node code path, `import 'fs'`)
+- `node_modules/.pnpm/@salusoft89+planegcs@*/dist/*` (bare `module` import inside a browser-bound dependency)
 
 **Root cause:** The kernel and replicad both contain dual-target code paths — a Node branch that uses `node:*` builtins and a browser branch that does not. Vite cannot statically prove the Node branches are dead in the browser bundle, so it externalizes the builtins to empty stubs.
 
 **Workaround:** Kernel's browser branch detects the externalized stub via `typeof __cadNodeModule.createRequire === 'function'` and falls back to inert values, so the stubs are never actually invoked at runtime. Replicad's own Node branches are gated on `ENVIRONMENT_IS_NODE` (an Emscripten runtime constant) and likewise never execute in the browser. The warnings are expected and safe. We could silence them with a custom Vite plugin or per-import tree-shaking hints, but the noise is tolerable for now.
 
-## [P3] `apps/web` production bundle is large (10.8 MB WASM + 700 KB JS) — Bundle size
+## [P3] `apps/web` production bundle is large (10.8 MB WASM + multi-MB JS) — Bundle size
 
-**Observed:** 2026-04-12
+**Observed:** 2026-04-12; updated 2026-04-26
 **Where:** `pnpm --filter @cad/web build`
 **Affects:** Initial page-load bundle size for `apps/web` production deployments
 
 **Symptom:** Vite reports `Some chunks are larger than 500 kB after minification`. Observed sizes:
 
 - `dist/assets/replicad_single-*.wasm` — 10.8 MB (gzip 4.6 MB) — the full OpenCascade.js kernel
-- `dist/assets/index-*.js` — 696 KB (gzip 187 KB) — three.js + React + app
-- `dist/assets/kernel.worker-*.js` — 342 KB — kernel bridge bundled into the worker
+- `dist/assets/index-*.js` — roughly 5.9 MB — app shell plus CAD/editor dependencies
+- `dist/assets/editor.api-*.js` — roughly 3.6 MB
+- `dist/assets/ts.worker-*.js` — roughly 6.9 MB
+- `dist/assets/kernel.worker-*.js` — hundreds of KB — kernel bridge bundled into the worker
 
 **Root cause:** OpenCascade.js is an industrial-grade B-rep kernel; it ships a large binary by design. Three.js is ~600 KB uncompressed. These are load-bearing dependencies.
 
@@ -157,15 +160,15 @@ The lcov report in `coverage/lcov.info` contains the correct per-file data, so t
 
 ## [P3] `ssh2` native binding builds from source on `pnpm install` — Install tooling
 
-**Observed:** 2026-04-12
-**Where:** `pnpm install` after Wave C introduced `testcontainers` as a transitive dep
-**Affects:** First install on each dev machine — adds ~10 s to `pnpm install`
+**Observed:** 2026-04-12; updated 2026-04-26
+**Where:** `pnpm install` and Compose-backed E2E Docker image builds after Wave C introduced `testcontainers` as a transitive dep
+**Affects:** First install on each dev machine and Docker build log noise
 
-**Symptom:** pnpm runs `ssh2`'s `install` script which invokes `node-gyp` to compile a native SSH crypto binding. Output is verbose (`CXX(target) Release/obj.target/...`) but harmless; the binding compiles successfully.
+**Symptom:** pnpm runs `ssh2`'s `install` script which invokes `node-gyp` to compile a native SSH crypto binding. On local installs the output is verbose (`CXX(target) Release/obj.target/...`) but harmless and the binding compiles successfully. In the Node 22 slim Docker build used by the E2E stack, optional native binding setup logs warnings such as `cpu-features install: Error: Unable to detect compiler type` and missing Python for `ssh2`, then continues successfully without blocking the install.
 
 **Root cause:** `testcontainers` depends on `ssh2` for its remote-Docker-host support. `ssh2` ships an optional native crypto binding that is compiled locally on install rather than distributed as a prebuilt binary.
 
-**Workaround:** None needed. The build succeeds and the binding is cached in the pnpm store after the first install — subsequent installs on the same machine reuse it. If local `node-gyp` becomes a problem in CI (e.g. Python missing on a new runner image), pin an older `ssh2` or exclude the build.
+**Workaround:** None needed. The build succeeds and the binding is cached in the pnpm store after the first install — subsequent installs on the same machine reuse it. The Docker warnings are non-fatal because these native bindings are optional for the local Compose/E2E path. If local `node-gyp` becomes a hard failure in CI, pin an older `ssh2`, install the missing build tools in the image, or exclude the optional build.
 
 ## [P3] `glob@10.5.0` deprecation warning from transitive dependency — Install tooling
 

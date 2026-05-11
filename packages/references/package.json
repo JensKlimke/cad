@@ -1,8 +1,8 @@
 {
-  "name": "@cad/runtime",
+  "name": "@cad/references",
   "version": "0.0.1",
   "private": true,
-  "description": "Sandboxed document execution runtime for the CAD monorepo.",
+  "description": "Stable geometry handles, selector schemas, and reference resolution for CAD documents.",
   "type": "module",
   "sideEffects": false,
   "exports": {
@@ -25,18 +25,14 @@
     "lint": "eslint ."
   },
   "dependencies": {
-    "@cad/expr": "workspace:*",
-    "@cad/kernel": "workspace:*",
-    "@cad/references": "workspace:*",
-    "@cad/sdk": "workspace:*",
-    "@cad/sketch": "workspace:*",
-    "typescript": "^6.0.2"
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@cad/config": "workspace:*",
     "@types/node": "^25.6.0",
     "@vitest/coverage-v8": "^4.1.4",
     "rimraf": "^6.1.3",
+    "typescript": "^6.0.2",
     "vitest": "^4.1.4"
   }
 }

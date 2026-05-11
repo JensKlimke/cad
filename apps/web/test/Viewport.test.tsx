@@ -34,6 +34,26 @@ const TESSELLATION = {
   },
 } as const;
 
+const TOPOLOGY = {
+  entities: [
+    {
+      id: 'pad_1.face.top',
+      kind: 'face' as const,
+      featureId: 'pad_1',
+      constructionPath: 'pad_1.face.top',
+      label: 'Top face',
+      centroid: [0.5, 0.5, 0] as [number, number, number],
+      normal: [0, 0, 1] as [number, number, number],
+      area: 1,
+      zRange: [0, 0] as [number, number],
+      hash: {
+        value: 'a'.repeat(64),
+        quantization: 1e-6,
+      },
+    },
+  ],
+};
+
 describe('<Viewport />', () => {
   let i18n: I18nInstance;
 
@@ -106,20 +126,32 @@ describe('<Viewport />', () => {
   });
 
   it('reflects scene selection callbacks in the status bar', () => {
+    const onHandleSelection = vi.fn();
     render(
       <I18nProvider i18n={i18n}>
-        <Viewport tessellation={TESSELLATION} />
+        <Viewport
+          tessellation={TESSELLATION}
+          topology={TOPOLOGY}
+          onHandleSelection={onHandleSelection}
+        />
       </I18nProvider>,
     );
 
     act(() => {
       lastSceneOptions?.onSelectionChange?.({
         kind: 'face',
-        index: 2,
-        label: 'Face 3',
+        index: 0,
+        label: 'Face 1',
       });
     });
 
-    expect(screen.getByTestId('viewport-statusbar').textContent).toContain('Faces: Face 3');
+    expect(screen.getByTestId('viewport-statusbar').textContent).toContain('Faces: Face 1');
+    expect(screen.getByTestId('viewport-reference-status').textContent).toContain('Top face');
+    expect(screen.getByTestId('viewport-root').dataset.referenceLayer).toBe('finder');
+    expect(onHandleSelection).toHaveBeenCalledWith(
+      expect.objectContaining({
+        handle: expect.objectContaining({ id: 'handle:pad_1.face.top' }),
+      }),
+    );
   });
 });

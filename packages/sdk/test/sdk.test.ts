@@ -1,8 +1,21 @@
 import { describe, expect, it } from 'vitest';
 
-import { body, defineDocument, docMetadata, expression, feature, literal, pad, parameters, reference, sketch } from '../src/index.js';
+import {
+  body,
+  defineDocument,
+  docMetadata,
+  expression,
+  feature,
+  handle,
+  literal,
+  pad,
+  parameters,
+  reference,
+  sketch,
+} from '../src/index.js';
 
-const DEFAULT_SKETCH_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="-20 -20 120 90" data-cad-plane="xy" data-cad-kind="rectangle">  <rect x="0" y="0" width="80" height="50" fill="none" stroke="currentColor" stroke-width="1" /></svg>';
+const DEFAULT_SKETCH_SVG =
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="-20 -20 120 90" data-cad-plane="xy" data-cad-kind="rectangle">  <rect x="0" y="0" width="80" height="50" fill="none" stroke="currentColor" stroke-width="1" /></svg>';
 const DEFAULT_SKETCH_CONSTRAINTS = {
   kind: 'rectangle' as const,
   anchor: 'origin' as const,
@@ -19,7 +32,11 @@ describe('@cad/sdk', () => {
         height: { kind: 'expression', expression: '2 * width', unit: 'mm' },
       }),
       body: body([
-        sketch({ id: 'sketch_1', svg: DEFAULT_SKETCH_SVG, constraints: DEFAULT_SKETCH_CONSTRAINTS }),
+        sketch({
+          id: 'sketch_1',
+          svg: DEFAULT_SKETCH_SVG,
+          constraints: DEFAULT_SKETCH_CONSTRAINTS,
+        }),
         pad({
           id: 'pad_1',
           sketch: feature('sketch_1'),
@@ -52,7 +69,14 @@ describe('@cad/sdk', () => {
       svg: DEFAULT_SKETCH_SVG,
       constraints: DEFAULT_SKETCH_CONSTRAINTS,
     });
-    expect(sketch({ id: 'sketch_1', plane: 'xy', svg: DEFAULT_SKETCH_SVG, constraints: DEFAULT_SKETCH_CONSTRAINTS })).toEqual({
+    expect(
+      sketch({
+        id: 'sketch_1',
+        plane: 'xy',
+        svg: DEFAULT_SKETCH_SVG,
+        constraints: DEFAULT_SKETCH_CONSTRAINTS,
+      }),
+    ).toEqual({
       kind: 'sketch',
       id: 'sketch_1',
       plane: 'xy',
@@ -65,6 +89,19 @@ describe('@cad/sdk', () => {
     expect(literal(5, 'mm')).toEqual({ kind: 'literal', value: 5, unit: 'mm' });
     expect(expression('width', 'mm')).toEqual({ kind: 'expression', source: 'width', unit: 'mm' });
     expect(reference('width')).toEqual({ kind: 'reference', name: 'width' });
+    expect(
+      handle({
+        id: 'handle:pad_1.face.top',
+        entityKind: 'face',
+        label: 'Top face',
+        selectors: [{ kind: 'construction', featureId: 'pad_1', path: 'pad_1.face.top' }],
+      }),
+    ).toEqual({
+      id: 'handle:pad_1.face.top',
+      entityKind: 'face',
+      label: 'Top face',
+      selectors: [{ kind: 'construction', featureId: 'pad_1', path: 'pad_1.face.top' }],
+    });
     expect(docMetadata.pad.title).toContain('Pad');
   });
 });

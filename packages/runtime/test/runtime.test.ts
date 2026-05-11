@@ -3,7 +3,17 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { ExprError } from '@cad/expr';
-import { body, defineDocument, feature, literal, pad, parameters, reference, sketch } from '@cad/sdk';
+import { createHandleFromEntity, resolveHandle } from '@cad/references';
+import {
+  body,
+  defineDocument,
+  feature,
+  literal,
+  pad,
+  parameters,
+  reference,
+  sketch,
+} from '@cad/sdk';
 import { describe, expect, it } from 'vitest';
 
 import { buildDocument } from '../src/build.js';
@@ -15,8 +25,17 @@ import type { RuntimeBuildError } from '../src/errors.js';
 import type { RuntimeOptions } from '../src/index.js';
 import type { WorkerRequest } from '../src/sandbox.js';
 
-const FIXTURE_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'tests', 'fixtures', 'slice-2');
-const DEFAULT_SKETCH_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="-20 -20 120 90" data-cad-plane="xy" data-cad-kind="rectangle">  <rect x="0" y="0" width="80" height="50" fill="none" stroke="currentColor" stroke-width="1" /></svg>';
+const FIXTURE_DIR = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '..',
+  '..',
+  '..',
+  'tests',
+  'fixtures',
+  'slice-2',
+);
+const DEFAULT_SKETCH_SVG =
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="-20 -20 120 90" data-cad-plane="xy" data-cad-kind="rectangle">  <rect x="0" y="0" width="80" height="50" fill="none" stroke="currentColor" stroke-width="1" /></svg>';
 const DEFAULT_SKETCH_CONSTRAINTS = {
   kind: 'rectangle' as const,
   anchor: 'origin' as const,
@@ -48,6 +67,22 @@ describe('@cad/runtime', () => {
       expect.objectContaining({ id: 'sketch_1', kind: 'sketch' }),
       expect.objectContaining({ id: 'pad_1', kind: 'pad' }),
     ]);
+    expect(result.topology.entities.map((entity) => entity.constructionPath)).toEqual([
+      'sketch_1.sketch.plane',
+      'pad_1.face.bottom',
+      'pad_1.face.top',
+      'pad_1.face.xMin',
+      'pad_1.face.xMax',
+      'pad_1.face.yMin',
+      'pad_1.face.yMax',
+    ]);
+    expect(
+      result.topology.entities.find((entity) => entity.constructionPath === 'pad_1.face.top'),
+    ).toMatchObject({
+      kind: 'face',
+      featureId: 'pad_1',
+      label: 'Top face',
+    });
   });
 
   it('produces the same hashes for repeated builds of the same source', async () => {
@@ -58,6 +93,32 @@ describe('@cad/runtime', () => {
     expect(second.documentHash).toBe(first.documentHash);
     expect(second.tessellation?.metadata.hash).toBe(first.tessellation?.metadata.hash);
     expect(second.features).toEqual(first.features);
+    expect(second.topology).toEqual(first.topology);
+  });
+
+  it('keeps semantic face handles resolvable across upstream dimension edits', async () => {
+    const validDocument = await readFixture('valid-pad.document.ts');
+    const first = await executeDocument(validDocument);
+    const topFace = first.topology.entities.find(
+      (entity) => entity.constructionPath === 'pad_1.face.top',
+    );
+    expect(topFace).toBeDefined();
+    if (topFace === undefined) {
+      throw new Error('Expected pad_1.face.top topology entity.');
+    }
+    const handle = createHandleFromEntity(topFace);
+
+    const edited = await executeDocument(
+      validDocument.replace(
+        "width: { kind: 'number', value: 10, unit: 'mm' }",
+        "width: { kind: 'number', value: 16, unit: 'mm' }",
+      ),
+    );
+    const resolved = resolveHandle(handle, edited.topology);
+
+    expect(resolved.ok).toBe(true);
+    expect(resolved.layer).toBe('construction');
+    expect(resolved.entity?.constructionPath).toBe('pad_1.face.top');
   });
 
   it('supports fixture documents with sketches plus pads', async () => {
@@ -153,21 +214,21 @@ describe('@cad/runtime', () => {
     await expect(
       buildDocument(
         defineDocument({
-            parameters: parameters({}),
-            body: body([
-              sketch({
-                id: 'sketch_1',
-                plane: 'xy',
-                svg: DEFAULT_SKETCH_SVG,
-                constraints: DEFAULT_SKETCH_CONSTRAINTS,
-              }),
-              pad({
-                sketch: feature('sketch_1'),
-                length: reference('missing'),
-                direction: 'up',
-              }),
-            ]),
-          }),
+          parameters: parameters({}),
+          body: body([
+            sketch({
+              id: 'sketch_1',
+              plane: 'xy',
+              svg: DEFAULT_SKETCH_SVG,
+              constraints: DEFAULT_SKETCH_CONSTRAINTS,
+            }),
+            pad({
+              sketch: feature('sketch_1'),
+              length: reference('missing'),
+              direction: 'up',
+            }),
+          ]),
+        }),
       ),
     ).rejects.toMatchObject({
       code: 'runtime.unknown_parameter',
@@ -200,7 +261,9 @@ describe('@cad/runtime', () => {
   });
 
   it('normalizes runtime, expression, error, and primitive failures', () => {
-    const existing = runtimeError('runtime.timeout', 'timed out', [{ code: 'runtime.timeout', message: 'timed out' }]);
+    const existing = runtimeError('runtime.timeout', 'timed out', [
+      { code: 'runtime.timeout', message: 'timed out' },
+    ]);
     expect(normalizeRuntimeError(existing)).toBe(existing);
 
     const fromExpr = normalizeRuntimeError(

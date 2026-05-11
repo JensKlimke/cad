@@ -205,6 +205,9 @@ importers:
       '@cad/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
+      '@cad/references':
+        specifier: workspace:*
+        version: link:../../packages/references
       '@cad/sdk':
         specifier: workspace:*
         version: link:../../packages/sdk
@@ -599,6 +602,34 @@ importers:
 
   packages/protocol:
     dependencies:
+      '@cad/references':
+        specifier: workspace:*
+        version: link:../references
+      zod:
+        specifier: ^4.3.6
+        version: 4.3.6
+    devDependencies:
+      '@cad/config':
+        specifier: workspace:*
+        version: link:../config
+      '@types/node':
+        specifier: ^25.6.0
+        version: 25.6.0
+      '@vitest/coverage-v8':
+        specifier: ^4.1.4
+        version: 4.1.4(vitest@4.1.4)
+      rimraf:
+        specifier: ^6.1.3
+        version: 6.1.3
+      typescript:
+        specifier: ^6.0.2
+        version: 6.0.2
+      vitest:
+        specifier: ^4.1.4
+        version: 4.1.4(@types/node@25.6.0)(@vitest/coverage-v8@4.1.4)(happy-dom@20.8.9)(vite@8.0.8(@types/node@25.6.0)(esbuild@0.27.7)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.3))
+
+  packages/references:
+    dependencies:
       zod:
         specifier: ^4.3.6
         version: 4.3.6
@@ -630,6 +661,9 @@ importers:
       '@cad/kernel':
         specifier: workspace:*
         version: link:../kernel
+      '@cad/references':
+        specifier: workspace:*
+        version: link:../references
       '@cad/sdk':
         specifier: workspace:*
         version: link:../sdk
@@ -661,6 +695,9 @@ importers:
       '@cad/expr':
         specifier: workspace:*
         version: link:../expr
+      '@cad/references':
+        specifier: workspace:*
+        version: link:../references
       '@cad/sketch':
         specifier: workspace:*
         version: link:../sketch
@@ -720,6 +757,9 @@ importers:
       '@cad/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
+      '@cad/references':
+        specifier: workspace:*
+        version: link:../../packages/references
       '@cad/server':
         specifier: workspace:*
         version: link:../../apps/server

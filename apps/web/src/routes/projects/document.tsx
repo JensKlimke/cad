@@ -7,6 +7,7 @@
  */
 
 import { useT } from '@cad/i18n';
+import { resolveHandle } from '@cad/references';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { useBlocker, useNavigate, useParams } from 'react-router';
@@ -53,7 +54,7 @@ import {
   undoAuthoringSession,
   type AuthoringSessionState,
 } from '../../documents/session.js';
-import { Viewport } from '../../viewport/Viewport.js';
+import { Viewport, type ReferenceSelection } from '../../viewport/Viewport.js';
 
 import type { AstNodeSelection, FeatureAst } from '@cad/authoring';
 import type { RuntimeDiagnostic } from '@cad/protocol';
@@ -80,6 +81,7 @@ export function DocumentHostRoute(): React.JSX.Element {
   const [queuedAuthoringWrites, setQueuedAuthoringWrites] = useState(0);
   const [authoringSession, setAuthoringSession] = useState<RoutedAuthoringSession | null>(null);
   const [activeSketchModeFeatureId, setActiveSketchModeFeatureId] = useState<string | null>(null);
+  const [referenceSelection, setReferenceSelection] = useState<ReferenceSelection | null>(null);
   const [activeDiagnosticIndex, setActiveDiagnosticIndex] = useState<number | null>(null);
   const [saveFeedback, setSaveFeedback] = useState<{
     readonly docId: string | null;
@@ -108,14 +110,23 @@ export function DocumentHostRoute(): React.JSX.Element {
   const document = documentQuery.data;
   const project = projectQuery.data;
   const savedSource = document?.tsSource.length ? document.tsSource : DEFAULT_DOCUMENT_SOURCE;
-  const initialParsedAuthoringState = useMemo(() => parseAuthoringSource(savedSource), [savedSource]);
+  const initialParsedAuthoringState = useMemo(
+    () => parseAuthoringSource(savedSource),
+    [savedSource],
+  );
   const initialSessionState = useMemo(
-    () => createAuthoringSessionState(savedSource, initialParsedAuthoringState, defaultSelection(initialParsedAuthoringState.ast)),
+    () =>
+      createAuthoringSessionState(
+        savedSource,
+        initialParsedAuthoringState,
+        defaultSelection(initialParsedAuthoringState.ast),
+      ),
     [initialParsedAuthoringState, savedSource],
   );
-  const activeSession = authoringSession !== null && authoringSession.docId === docId
-    ? authoringSession.history
-    : initialSessionState;
+  const activeSession =
+    authoringSession !== null && authoringSession.docId === docId
+      ? authoringSession.history
+      : initialSessionState;
   const draftSource = activeSession.present.source;
   const isDirty = document !== undefined && draftSource !== savedSource;
   const cachedBuild = buildStateQuery.data ?? undefined;
@@ -137,24 +148,47 @@ export function DocumentHostRoute(): React.JSX.Element {
   const currentLastValidAst = activeSession.present.lastValidAst;
   const displayedAst = currentLastValidAst ?? currentAst;
   const sourceIsValid = currentAst !== null;
-  const currentSelection = resolveSelection(
-    displayedAst,
-    activeSession.present.selection,
-  );
+  const currentSelection = resolveSelection(displayedAst, activeSession.present.selection);
   const currentParseError = activeSession.present.parseError;
   const selectedParameter = findSelectedParameter(displayedAst, currentSelection);
   const selectedFeature = findSelectedFeature(displayedAst, currentSelection);
-  const activeSketchModeFeature = displayedAst === null
-    ? null
-    : (displayedAst.features.find(
-        (feature): feature is Extract<FeatureAst, { kind: 'sketch' }> =>
-          feature.kind === 'sketch' && feature.id === activeSketchModeFeatureId,
-      ) ?? null);
+  const activeSketchModeFeature =
+    displayedAst === null
+      ? null
+      : (displayedAst.features.find(
+          (feature): feature is Extract<FeatureAst, { kind: 'sketch' }> =>
+            feature.kind === 'sketch' && feature.id === activeSketchModeFeatureId,
+        ) ?? null);
   const canUndo = activeSession.past.length > 0;
   const canRedo = activeSession.future.length > 0;
   const authoringWritePending = queuedAuthoringWrites > 0;
 
   useDocumentBuildEvents(docId);
+
+  useEffect(() => {
+    setReferenceSelection(null);
+  }, [docId]);
+
+  useEffect(() => {
+    const topology = activeBuild?.build.topology;
+    if (topology === undefined || referenceSelection === null) {
+      return;
+    }
+    const resolution = resolveHandle(referenceSelection.handle, topology);
+    setReferenceSelection((current) => {
+      if (current === null) {
+        return null;
+      }
+      if (
+        current.resolution.ok === resolution.ok &&
+        current.resolution.layer === resolution.layer &&
+        current.resolution.entity?.hash.value === resolution.entity?.hash.value
+      ) {
+        return current;
+      }
+      return { ...current, resolution };
+    });
+  }, [activeBuild?.build.documentHash, activeBuild?.build.topology, referenceSelection]);
 
   useEffect(() => {
     if (docId === undefined) {
@@ -174,9 +208,11 @@ export function DocumentHostRoute(): React.JSX.Element {
 
   useEffect(() => {
     if (
-      activeSketchModeFeatureId !== null
-      && displayedAst !== null
-      && !displayedAst.features.some((feature) => feature.kind === 'sketch' && feature.id === activeSketchModeFeatureId)
+      activeSketchModeFeatureId !== null &&
+      displayedAst !== null &&
+      !displayedAst.features.some(
+        (feature) => feature.kind === 'sketch' && feature.id === activeSketchModeFeatureId,
+      )
     ) {
       setActiveSketchModeFeatureId(null);
     }
@@ -215,11 +251,11 @@ export function DocumentHostRoute(): React.JSX.Element {
 
   useEffect(() => {
     if (
-      !hasRouteParams
-      || documentQuery.data === undefined
-      || buildDocument.isPending
-      || activeBuild !== undefined
-      || updateDocument.isPending
+      !hasRouteParams ||
+      documentQuery.data === undefined ||
+      buildDocument.isPending ||
+      activeBuild !== undefined ||
+      updateDocument.isPending
     ) {
       return;
     }
@@ -297,61 +333,70 @@ export function DocumentHostRoute(): React.JSX.Element {
     navigationBlocker.reset();
   }, [navigationBlocker, t]);
 
-  const commitSessionSnapshot = useCallback((snapshot: Parameters<typeof pushAuthoringSnapshot>[1]) => {
-    setAuthoringSession((current) => {
-      if (docId === undefined) {
-        return current;
-      }
-      const baseHistory = current?.docId === docId ? current.history : initialSessionState;
-      return {
-        docId,
-        serverSource: savedSource,
-        history: pushAuthoringSnapshot(baseHistory, snapshot),
-      };
-    });
-  }, [docId, initialSessionState, savedSource]);
-
-  const enqueueAuthoringWrite = useCallback(
-    async <T,>(task: () => Promise<T>): Promise<T> => {
-      setQueuedAuthoringWrites((current) => current + 1);
-      const previous = queuedAuthoringWritesReference.current;
-      let releaseQueue = () => {};
-      queuedAuthoringWritesReference.current = new Promise<void>((resolve) => {
-        releaseQueue = resolve;
+  const commitSessionSnapshot = useCallback(
+    (snapshot: Parameters<typeof pushAuthoringSnapshot>[1]) => {
+      setAuthoringSession((current) => {
+        if (docId === undefined) {
+          return current;
+        }
+        const baseHistory = current?.docId === docId ? current.history : initialSessionState;
+        return {
+          docId,
+          serverSource: savedSource,
+          history: pushAuthoringSnapshot(baseHistory, snapshot),
+        };
       });
-      await previous;
-      try {
-        return await task();
-      } finally {
-        releaseQueue();
-        setQueuedAuthoringWrites((current) => Math.max(0, current - 1));
-      }
     },
-    [],
+    [docId, initialSessionState, savedSource],
   );
 
-  const persistDraft = useCallback(async (mode: 'manual' | 'autosave'): Promise<void> => {
-    setSaveFeedback({
-      docId: docId ?? null,
-      status: 'saving',
-      message: t(mode === 'autosave' ? 'document_workspace.autosaving' : 'document_workspace.saving'),
+  const enqueueAuthoringWrite = useCallback(async <T,>(task: () => Promise<T>): Promise<T> => {
+    setQueuedAuthoringWrites((current) => current + 1);
+    const previous = queuedAuthoringWritesReference.current;
+    let releaseQueue = () => {};
+    queuedAuthoringWritesReference.current = new Promise<void>((resolve) => {
+      releaseQueue = resolve;
     });
+    await previous;
     try {
-      await updateDocument.mutateAsync({ tsSource: draftSource });
-      setSaveFeedback({
-        docId: docId ?? null,
-        status: 'saved',
-        message: t(mode === 'autosave' ? 'document_workspace.autosave_complete' : 'document_workspace.save_complete'),
-      });
-    } catch (error) {
-      setSaveFeedback({
-        docId: docId ?? null,
-        status: 'error',
-        message: error instanceof Error ? error.message : String(error),
-      });
-      throw error;
+      return await task();
+    } finally {
+      releaseQueue();
+      setQueuedAuthoringWrites((current) => Math.max(0, current - 1));
     }
-  }, [docId, draftSource, t, updateDocument]);
+  }, []);
+
+  const persistDraft = useCallback(
+    async (mode: 'manual' | 'autosave'): Promise<void> => {
+      setSaveFeedback({
+        docId: docId ?? null,
+        status: 'saving',
+        message: t(
+          mode === 'autosave' ? 'document_workspace.autosaving' : 'document_workspace.saving',
+        ),
+      });
+      try {
+        await updateDocument.mutateAsync({ tsSource: draftSource });
+        setSaveFeedback({
+          docId: docId ?? null,
+          status: 'saved',
+          message: t(
+            mode === 'autosave'
+              ? 'document_workspace.autosave_complete'
+              : 'document_workspace.save_complete',
+          ),
+        });
+      } catch (error) {
+        setSaveFeedback({
+          docId: docId ?? null,
+          status: 'error',
+          message: error instanceof Error ? error.message : String(error),
+        });
+        throw error;
+      }
+    },
+    [docId, draftSource, t, updateDocument],
+  );
 
   const handleUndo = useCallback(() => {
     if (!canUndo || docId === undefined) {
@@ -382,14 +427,27 @@ export function DocumentHostRoute(): React.JSX.Element {
   }, [canRedo, docId, initialSessionState, savedSource]);
 
   useEffect(() => {
-    if (!hasRouteParams || document === undefined || !isDirty || updateDocument.isPending || buildDocument.isPending) {
+    if (
+      !hasRouteParams ||
+      document === undefined ||
+      !isDirty ||
+      updateDocument.isPending ||
+      buildDocument.isPending
+    ) {
       return;
     }
     const timeoutId = globalThis.setTimeout(() => {
       void persistDraft('autosave').catch(() => {});
     }, 1200);
     return () => globalThis.clearTimeout(timeoutId);
-  }, [buildDocument.isPending, document, hasRouteParams, isDirty, persistDraft, updateDocument.isPending]);
+  }, [
+    buildDocument.isPending,
+    document,
+    hasRouteParams,
+    isDirty,
+    persistDraft,
+    updateDocument.isPending,
+  ]);
 
   useEffect(() => {
     if (!shouldBlockNavigation) {
@@ -407,7 +465,8 @@ export function DocumentHostRoute(): React.JSX.Element {
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent): void {
-      const isUndoShortcut = (event.metaKey || event.ctrlKey) && !event.altKey && event.key.toLowerCase() === 'z';
+      const isUndoShortcut =
+        (event.metaKey || event.ctrlKey) && !event.altKey && event.key.toLowerCase() === 'z';
       if (!isUndoShortcut) {
         return;
       }
@@ -507,7 +566,10 @@ export function DocumentHostRoute(): React.JSX.Element {
     }
   }
 
-  async function applyUiOperation(op: Parameters<typeof applyAuthoringOperation>[1], nextSelection: AstNodeSelection | null): Promise<void> {
+  async function applyUiOperation(
+    op: Parameters<typeof applyAuthoringOperation>[1],
+    nextSelection: AstNodeSelection | null,
+  ): Promise<void> {
     if (!hasRouteParams || displayedAst === null || !sourceIsValid) {
       return;
     }
@@ -527,20 +589,27 @@ export function DocumentHostRoute(): React.JSX.Element {
     });
   }
 
-  async function handleUpdateParameter(idToUpdate: string, name: string, definition: ParameterDefinition): Promise<void> {
+  async function handleUpdateParameter(
+    idToUpdate: string,
+    name: string,
+    definition: ParameterDefinition,
+  ): Promise<void> {
     const selected = displayedAst?.parameters.find((parameter) => parameter.id === idToUpdate);
     if (selected === undefined) {
       return;
     }
-    await applyUiOperation({
-      kind: 'parameter.update',
-      id: idToUpdate,
-      parameter: {
+    await applyUiOperation(
+      {
+        kind: 'parameter.update',
         id: idToUpdate,
-        name,
-        definition: normalizeParameterDefinition(definition),
+        parameter: {
+          id: idToUpdate,
+          name,
+          definition: normalizeParameterDefinition(definition),
+        },
       },
-    }, { kind: 'parameter', id: selected.id });
+      { kind: 'parameter', id: selected.id },
+    );
   }
 
   async function handleUpdateFeature(idToUpdate: string, feature: FeatureAst): Promise<void> {
@@ -659,7 +728,10 @@ export function DocumentHostRoute(): React.JSX.Element {
     );
   }
 
-  function handleEditorSelectionChange(selection: { readonly start: number; readonly end: number }): void {
+  function handleEditorSelectionChange(selection: {
+    readonly start: number;
+    readonly end: number;
+  }): void {
     if (!sourceIsValid) {
       return;
     }
@@ -801,16 +873,24 @@ export function DocumentHostRoute(): React.JSX.Element {
   } else if (streamBuildState?.kind === 'running' || streamBuildState?.kind === 'ready') {
     streamDiagnostics = [];
   }
-  const parseDiagnostics: readonly RuntimeDiagnostic[] = currentParseError === null
-    ? []
-    : [{
-        code: 'authoring.parse',
-        message: currentParseError,
-      }];
-  const effectiveDiagnostics = resolveEffectiveDiagnostics(buildDiagnostics, streamDiagnostics, parseDiagnostics);
+  const parseDiagnostics: readonly RuntimeDiagnostic[] =
+    currentParseError === null
+      ? []
+      : [
+          {
+            code: 'authoring.parse',
+            message: currentParseError,
+          },
+        ];
+  const effectiveDiagnostics = resolveEffectiveDiagnostics(
+    buildDiagnostics,
+    streamDiagnostics,
+    parseDiagnostics,
+  );
   const hasRemoteBuildRunning = !buildDocument.isPending && streamBuildState?.kind === 'running';
   const hasRemoteBuildFailure = !buildDocument.isPending && streamBuildState?.kind === 'failed';
-  let effectiveBuildHash = activeBuild === undefined ? activeBuildHash : resolveBuildHash(activeBuild.build);
+  let effectiveBuildHash =
+    activeBuild === undefined ? activeBuildHash : resolveBuildHash(activeBuild.build);
   if (streamBuildState?.kind === 'ready') {
     effectiveBuildHash = streamBuildState.hash;
   }
@@ -833,7 +913,11 @@ export function DocumentHostRoute(): React.JSX.Element {
     buildStatusTone = 'workspace-status workspace-status--danger';
     buildStatusTitle = t('document_workspace.build_failed_title');
     buildStatusBody = t('document_workspace.remote_build_failed_body');
-  } else if (!buildDocument.isPending && streamBuildState?.kind === 'ready' && activeBuild !== undefined) {
+  } else if (
+    !buildDocument.isPending &&
+    streamBuildState?.kind === 'ready' &&
+    activeBuild !== undefined
+  ) {
     buildStatusTone = 'workspace-status workspace-status--success';
     buildStatusTitle = t('document_workspace.build_ready_title');
     buildStatusBody = t('document_workspace.build_ready', {
@@ -842,9 +926,13 @@ export function DocumentHostRoute(): React.JSX.Element {
   }
 
   const resolvedActiveDiagnosticIndex =
-    effectiveDiagnostics.length === 0 ? null : Math.min(activeDiagnosticIndex ?? 0, effectiveDiagnostics.length - 1);
+    effectiveDiagnostics.length === 0
+      ? null
+      : Math.min(activeDiagnosticIndex ?? 0, effectiveDiagnostics.length - 1);
   const activeDiagnostic =
-    resolvedActiveDiagnosticIndex === null ? null : (effectiveDiagnostics[resolvedActiveDiagnosticIndex] ?? null);
+    resolvedActiveDiagnosticIndex === null
+      ? null
+      : (effectiveDiagnostics[resolvedActiveDiagnosticIndex] ?? null);
   const activeDiagnosticLocation = describeDiagnosticLocation(activeDiagnostic, draftSource);
 
   function focusDiagnostic(diagnostic: RuntimeDiagnostic, index: number): void {
@@ -855,7 +943,10 @@ export function DocumentHostRoute(): React.JSX.Element {
     }
     if (diagnostic.range !== undefined) {
       const safeStart = clampOffset(diagnostic.range.start, draftSource.length);
-      const safeEnd = clampOffset(Math.max(diagnostic.range.end, diagnostic.range.start), draftSource.length);
+      const safeEnd = clampOffset(
+        Math.max(diagnostic.range.end, diagnostic.range.start),
+        draftSource.length,
+      );
       editor.focusRange(safeStart, safeEnd);
       return;
     }
@@ -873,18 +964,18 @@ export function DocumentHostRoute(): React.JSX.Element {
           <dt>{t('document_workspace.document_label')}</dt>
           <dd>{docId}</dd>
         </div>
-            <div className="workspace-meta__row">
-              <dt>{t('document_workspace.status_label')}</dt>
-              <dd>
-                {describeDocumentState(
-                  currentParseError,
-                  isDirty,
-                  t('document_workspace.status_out_of_sync'),
-                  t('document_workspace.status_dirty'),
-                  t('document_workspace.status_synced'),
-                )}
-              </dd>
-            </div>
+        <div className="workspace-meta__row">
+          <dt>{t('document_workspace.status_label')}</dt>
+          <dd>
+            {describeDocumentState(
+              currentParseError,
+              isDirty,
+              t('document_workspace.status_out_of_sync'),
+              t('document_workspace.status_dirty'),
+              t('document_workspace.status_synced'),
+            )}
+          </dd>
+        </div>
       </dl>
       <div className="document-note">
         <p className="document-note__title">{t('document_workspace.authoring_state_title')}</p>
@@ -919,6 +1010,36 @@ export function DocumentHostRoute(): React.JSX.Element {
                 </div>
               </>
             )}
+          </dl>
+        )}
+      </div>
+      <div className="workspace-panel__subsection" data-testid="reference-explorer">
+        <p className="workspace-panel__eyebrow">References</p>
+        <h3 className="workspace-panel__title workspace-panel__title--small">Selected handle</h3>
+        {referenceSelection === null ? (
+          <p className="workspace-inline-note">
+            Click a face in the viewport to record a stable handle.
+          </p>
+        ) : (
+          <dl className="workspace-meta workspace-meta--compact">
+            <div className="workspace-meta__row">
+              <dt>Handle</dt>
+              <dd data-testid="reference-handle-label">
+                {referenceSelection.handle.label ?? referenceSelection.handle.id}
+              </dd>
+            </div>
+            <div className="workspace-meta__row">
+              <dt>Resolver</dt>
+              <dd data-testid="reference-resolver-layer">
+                {referenceSelection.resolution.ok
+                  ? `Resolved by ${referenceSelection.resolution.layer ?? 'unknown'}`
+                  : 'Needs repair'}
+              </dd>
+            </div>
+            <div className="workspace-meta__row">
+              <dt>Depends on</dt>
+              <dd>{referenceSelection.resolution.entity?.featureId ?? 'Unknown feature'}</dd>
+            </div>
           </dl>
         )}
       </div>
@@ -966,7 +1087,17 @@ export function DocumentHostRoute(): React.JSX.Element {
       </div>
     );
   } else {
-    viewportContent = <Viewport key={docId ?? 'viewport'} tessellation={tessellation} storageKey={docId} />;
+    viewportContent = (
+      <Viewport
+        key={docId ?? 'viewport'}
+        tessellation={tessellation}
+        storageKey={docId}
+        onHandleSelection={setReferenceSelection}
+        {...(activeBuild?.build.topology === undefined
+          ? {}
+          : { topology: activeBuild.build.topology })}
+      />
+    );
   }
 
   return (
@@ -977,13 +1108,18 @@ export function DocumentHostRoute(): React.JSX.Element {
       testId="document-host"
       {...(project === undefined ? {} : { projectLink: { id, name: project.name } })}
       {...(document === undefined ? {} : { documentLink: { id: docId, name: document.name } })}
-        headerActions={
-          <div className="workspace-inline-actions">
+      headerActions={
+        <div className="workspace-inline-actions">
           <button
             type="button"
             className="workspace-button workspace-button--ghost"
             onClick={handleUndo}
-            disabled={!canUndo || authoringWritePending || updateDocument.isPending || buildDocument.isPending}
+            disabled={
+              !canUndo ||
+              authoringWritePending ||
+              updateDocument.isPending ||
+              buildDocument.isPending
+            }
             data-testid="document-undo"
           >
             {t('document_workspace.undo')}
@@ -992,7 +1128,12 @@ export function DocumentHostRoute(): React.JSX.Element {
             type="button"
             className="workspace-button workspace-button--ghost"
             onClick={handleRedo}
-            disabled={!canRedo || authoringWritePending || updateDocument.isPending || buildDocument.isPending}
+            disabled={
+              !canRedo ||
+              authoringWritePending ||
+              updateDocument.isPending ||
+              buildDocument.isPending
+            }
             data-testid="document-redo"
           >
             {t('document_workspace.redo')}
@@ -1008,7 +1149,12 @@ export function DocumentHostRoute(): React.JSX.Element {
             type="button"
             className="workspace-button workspace-button--ghost"
             onClick={() => void handleSave()}
-            disabled={authoringWritePending || updateDocument.isPending || buildDocument.isPending || !isDirty}
+            disabled={
+              authoringWritePending ||
+              updateDocument.isPending ||
+              buildDocument.isPending ||
+              !isDirty
+            }
             data-testid="document-save"
           >
             {t('document_workspace.save')}
@@ -1017,7 +1163,12 @@ export function DocumentHostRoute(): React.JSX.Element {
             type="button"
             className="workspace-button workspace-button--primary"
             onClick={() => void handleSaveAndBuild()}
-            disabled={authoringWritePending || documentQuery.isPending || updateDocument.isPending || buildDocument.isPending}
+            disabled={
+              authoringWritePending ||
+              documentQuery.isPending ||
+              updateDocument.isPending ||
+              buildDocument.isPending
+            }
             data-testid="document-build"
           >
             {buildButtonLabel}
@@ -1026,7 +1177,11 @@ export function DocumentHostRoute(): React.JSX.Element {
             type="button"
             className="workspace-button workspace-button--secondary"
             onClick={() => void handleExportStl()}
-            disabled={activeBuild?.build.tessellation === null || activeBuild === undefined || buildDocument.isPending}
+            disabled={
+              activeBuild?.build.tessellation === null ||
+              activeBuild === undefined ||
+              buildDocument.isPending
+            }
             data-testid="document-export-stl"
           >
             {t('document_workspace.export_stl')}
@@ -1087,7 +1242,9 @@ export function DocumentHostRoute(): React.JSX.Element {
                   type="button"
                   className="workspace-inline-link"
                   onClick={() => void handleSave()}
-                  disabled={authoringWritePending || updateDocument.isPending || buildDocument.isPending}
+                  disabled={
+                    authoringWritePending || updateDocument.isPending || buildDocument.isPending
+                  }
                   data-testid="document-save-retry"
                 >
                   {t('document_workspace.retry_save')}
@@ -1095,7 +1252,9 @@ export function DocumentHostRoute(): React.JSX.Element {
               )}
             </article>
             <article className={buildStatusTone} data-testid="document-build-status">
-              <p className="workspace-status__label">{t('document_workspace.build_status_label')}</p>
+              <p className="workspace-status__label">
+                {t('document_workspace.build_status_label')}
+              </p>
               <h3 className="workspace-status__title">{buildStatusTitle}</h3>
               <p className="workspace-status__body">{buildStatusBody}</p>
               {effectiveBuildHash !== null && (
@@ -1108,7 +1267,12 @@ export function DocumentHostRoute(): React.JSX.Element {
                   type="button"
                   className="workspace-inline-link"
                   onClick={() => void handleSaveAndBuild()}
-                  disabled={authoringWritePending || documentQuery.isPending || updateDocument.isPending || buildDocument.isPending}
+                  disabled={
+                    authoringWritePending ||
+                    documentQuery.isPending ||
+                    updateDocument.isPending ||
+                    buildDocument.isPending
+                  }
                   data-testid="document-build-retry"
                 >
                   {t('document_workspace.retry_build')}
@@ -1159,7 +1323,9 @@ export function DocumentHostRoute(): React.JSX.Element {
             <div className="diagnostics-panel" data-testid="document-diagnostics">
               <div className="diagnostics-panel__header">
                 <div>
-                  <p className="diagnostics-panel__title">{t('document_workspace.diagnostics_title')}</p>
+                  <p className="diagnostics-panel__title">
+                    {t('document_workspace.diagnostics_title')}
+                  </p>
                   {activeDiagnosticLocation !== null && (
                     <p className="diagnostics-panel__meta">{activeDiagnosticLocation}</p>
                   )}
@@ -1168,7 +1334,12 @@ export function DocumentHostRoute(): React.JSX.Element {
                   type="button"
                   className="workspace-inline-link"
                   onClick={() => void handleSaveAndBuild()}
-                  disabled={authoringWritePending || documentQuery.isPending || updateDocument.isPending || buildDocument.isPending}
+                  disabled={
+                    authoringWritePending ||
+                    documentQuery.isPending ||
+                    updateDocument.isPending ||
+                    buildDocument.isPending
+                  }
                   data-testid="document-diagnostics-retry"
                 >
                   {t('document_workspace.retry_build')}
@@ -1176,7 +1347,10 @@ export function DocumentHostRoute(): React.JSX.Element {
               </div>
               <ul className="diagnostics-list">
                 {effectiveDiagnostics.map((diagnostic, index) => (
-                  <li key={`${diagnostic.code}-${String(index)}`} className="diagnostics-list__item">
+                  <li
+                    key={`${diagnostic.code}-${String(index)}`}
+                    className="diagnostics-list__item"
+                  >
                     <button
                       type="button"
                       className={
@@ -1190,7 +1364,9 @@ export function DocumentHostRoute(): React.JSX.Element {
                       <strong>{diagnostic.code}</strong>
                       <span>{diagnostic.message}</span>
                       {diagnostic.path !== undefined && diagnostic.path.length > 0 && (
-                        <span className="diagnostics-list__path">{diagnostic.path.join(' > ')}</span>
+                        <span className="diagnostics-list__path">
+                          {diagnostic.path.join(' > ')}
+                        </span>
                       )}
                     </button>
                   </li>
@@ -1205,14 +1381,17 @@ export function DocumentHostRoute(): React.JSX.Element {
             <div>
               <p className="workspace-panel__eyebrow">{t('document_workspace.viewport_eyebrow')}</p>
               <h2 className="workspace-panel__title">
-                {activeSketchModeFeature === null ? t('document_workspace.viewport_title') : 'Sketch mode'}
+                {activeSketchModeFeature === null
+                  ? t('document_workspace.viewport_title')
+                  : 'Sketch mode'}
               </h2>
             </div>
           </div>
-          <div className="viewport-frame">
-            {viewportContent}
-          </div>
-          <div className="workspace-meta workspace-meta--viewport" data-testid="document-viewport-summary">
+          <div className="viewport-frame">{viewportContent}</div>
+          <div
+            className="workspace-meta workspace-meta--viewport"
+            data-testid="document-viewport-summary"
+          >
             <div className="workspace-meta__row">
               <dt>{t('document_workspace.viewport_source_label')}</dt>
               <dd>{viewportSourceValue}</dd>
@@ -1232,7 +1411,10 @@ function clampOffset(offset: number, sourceLength: number): number {
   return Math.max(0, Math.min(offset, sourceLength));
 }
 
-function offsetToLineColumn(source: string, offset: number): { readonly line: number; readonly column: number } {
+function offsetToLineColumn(
+  source: string,
+  offset: number,
+): { readonly line: number; readonly column: number } {
   const safeOffset = clampOffset(offset, source.length);
   const before = source.slice(0, safeOffset);
   const lines = before.split('\n');
@@ -1242,7 +1424,10 @@ function offsetToLineColumn(source: string, offset: number): { readonly line: nu
   };
 }
 
-function describeDiagnosticLocation(diagnostic: RuntimeDiagnostic | null, source: string): string | null {
+function describeDiagnosticLocation(
+  diagnostic: RuntimeDiagnostic | null,
+  source: string,
+): string | null {
   if (diagnostic === null || diagnostic.range === undefined) {
     return null;
   }

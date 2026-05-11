@@ -1,5 +1,6 @@
 import { useT } from '@cad/i18n';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { createHandleFromEntity, findEntityByRawSelection, resolveHandle } from '@cad/references';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { createScene, type SceneHandles } from '../lib/three-scene.js';
 
@@ -18,15 +19,31 @@ import {
 import { useKernelWorker } from './useKernelWorker.js';
 
 import type { BoxInput, TessellationResult } from '@cad/kernel';
+import type { Handle, ResolutionResult, Topology } from '@cad/references';
 
 export interface ViewportProps {
   readonly box?: BoxInput;
   readonly tessellation?: TessellationResult;
   readonly storageKey?: string;
+  readonly topology?: Topology;
+  readonly onHandleSelection?: (selection: ReferenceSelection | null) => void;
 }
 
-export function Viewport({ box, tessellation, storageKey }: ViewportProps): React.JSX.Element {
+export interface ReferenceSelection {
+  readonly raw: ViewportSelection;
+  readonly handle: Handle;
+  readonly resolution: ResolutionResult;
+}
+
+export function Viewport({
+  box,
+  tessellation,
+  storageKey,
+  topology,
+  onHandleSelection,
+}: ViewportProps): React.JSX.Element {
   const { t } = useT('viewport');
+  const rootRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const handlesRef = useRef<SceneHandles | null>(null);
   const workerState = useKernelWorker(box ?? null);
@@ -43,7 +60,35 @@ export function Viewport({ box, tessellation, storageKey }: ViewportProps): Reac
 
   const [settings, setSettings] = useState<ViewportSettings>(initialSettings);
   const [selection, setSelection] = useState<ViewportSelection | null>(null);
+  const [referenceSelection, setReferenceSelection] = useState<ReferenceSelection | null>(null);
   const [isInteracting, setIsInteracting] = useState(false);
+
+  const applyReferenceSelection = useCallback(
+    (nextSelection: ViewportSelection | null): void => {
+      setSelection(nextSelection);
+      if (nextSelection === null || topology === undefined) {
+        setReferenceSelection(null);
+        onHandleSelection?.(null);
+        return;
+      }
+      const entity = findEntityByRawSelection(topology, nextSelection);
+      if (entity === null) {
+        setReferenceSelection(null);
+        onHandleSelection?.(null);
+        return;
+      }
+      const handle = createHandleFromEntity(entity);
+      const resolved = resolveHandle(handle, topology);
+      const nextReferenceSelection = {
+        raw: nextSelection,
+        handle,
+        resolution: resolved,
+      };
+      setReferenceSelection(nextReferenceSelection);
+      onHandleSelection?.(nextReferenceSelection);
+    },
+    [onHandleSelection, topology],
+  );
 
   useEffect(() => {
     if (storageKey === undefined) {
@@ -68,7 +113,7 @@ export function Viewport({ box, tessellation, storageKey }: ViewportProps): Reac
         setSettings((current) => ({ ...current, camera: nextCamera }));
       },
       onSelectionChange(nextSelection) {
-        setSelection(nextSelection);
+        applyReferenceSelection(nextSelection);
       },
     });
     handlesRef.current = handles;
@@ -131,7 +176,29 @@ export function Viewport({ box, tessellation, storageKey }: ViewportProps): Reac
       handles.dispose();
       handlesRef.current = null;
     };
-  }, [initialSettings, result]);
+  }, [applyReferenceSelection, initialSettings, result]);
+
+  useEffect(() => {
+    const root = rootRef.current;
+    if (root === null) {
+      return;
+    }
+    const testRoot = root as {
+      __cadSelectReference?: (
+        selection?: { readonly kind?: SelectionFilter; readonly index?: number },
+      ) => void;
+    };
+    testRoot.__cadSelectReference = (nextSelection = {}) => {
+      applyReferenceSelection({
+        kind: nextSelection.kind ?? 'face',
+        index: nextSelection.index ?? 0,
+        label: `Face ${(nextSelection.index ?? 0) + 1}`,
+      });
+    };
+    return () => {
+      delete testRoot.__cadSelectReference;
+    };
+  }, [applyReferenceSelection]);
 
   function updateProjection(projection: ProjectionMode): void {
     handlesRef.current?.setProjection(projection);
@@ -151,7 +218,8 @@ export function Viewport({ box, tessellation, storageKey }: ViewportProps): Reac
 
   function applyNamedView(namedView: NamedView): void {
     const nextCamera =
-      handlesRef.current?.applyNamedView(namedView) ?? buildNamedViewCameraState(namedView, settings.camera);
+      handlesRef.current?.applyNamedView(namedView) ??
+      buildNamedViewCameraState(namedView, settings.camera);
     setSettings((current) => ({
       ...current,
       namedView,
@@ -174,17 +242,28 @@ export function Viewport({ box, tessellation, storageKey }: ViewportProps): Reac
           kind: t(`filters.${selection.kind}`),
           label: selection.label,
         });
+  const referenceText =
+    referenceSelection === null
+      ? 'No handle'
+      : `${referenceSelection.handle.label ?? referenceSelection.handle.id} · ${
+          referenceSelection.resolution.ok
+            ? `resolved by ${referenceSelection.resolution.layer ?? 'unknown'}`
+            : 'unresolved'
+        }`;
 
   const cameraDistance = Math.round(settings.camera.distance);
 
   return (
     <div
+      ref={rootRef}
       className="cad-viewport"
       data-tessellation-hash={result?.metadata.hash ?? ''}
       data-camera-mode={settings.projection}
       data-named-view={settings.namedView}
       data-visual-style={settings.visualStyle}
       data-selection-filter={settings.selectionFilter}
+      data-reference-handle={referenceSelection?.handle.id ?? ''}
+      data-reference-layer={referenceSelection?.resolution.layer ?? ''}
       data-testid="viewport-root"
     >
       <div className="cad-viewport__toolbar" data-testid="viewport-toolbar">
@@ -259,7 +338,9 @@ export function Viewport({ box, tessellation, storageKey }: ViewportProps): Reac
         <canvas ref={canvasRef} className="cad-viewport__canvas" data-testid="viewport-canvas" />
         <div className="cad-viewport__overlay cad-viewport__overlay--left">
           {pending && !error && <ViewportNote tone="neutral">{t('kernel.booting')}</ViewportNote>}
-          {error && <ViewportNote tone="danger">{t('kernel.error', { message: error })}</ViewportNote>}
+          {error && (
+            <ViewportNote tone="danger">{t('kernel.error', { message: error })}</ViewportNote>
+          )}
           {meshSummary !== null && <ViewportNote tone="neutral">{meshSummary}</ViewportNote>}
         </div>
         <div className="cad-viewport__overlay cad-viewport__overlay--right">
@@ -284,6 +365,10 @@ export function Viewport({ box, tessellation, storageKey }: ViewportProps): Reac
           <strong>{t('status.selection_label')}</strong>
           <span>{selectionText}</span>
         </span>
+        <span className="cad-viewport__status-item" data-testid="viewport-reference-status">
+          <strong>Reference</strong>
+          <span>{referenceText}</span>
+        </span>
         <span className="cad-viewport__status-item">
           <strong>{t('status.distance_label')}</strong>
           <span>{t('status.distance_value', { distance: cameraDistance })}</span>
@@ -305,7 +390,9 @@ function ViewportToggle({
   return (
     <button
       type="button"
-      className={active ? 'cad-viewport__toggle cad-viewport__toggle--active' : 'cad-viewport__toggle'}
+      className={
+        active ? 'cad-viewport__toggle cad-viewport__toggle--active' : 'cad-viewport__toggle'
+      }
       onClick={onClick}
     >
       {label}
@@ -329,7 +416,11 @@ function ViewportSelect<Value extends string>({
   return (
     <label className="cad-viewport__select" data-testid={testId}>
       <span className="cad-viewport__group-label">{label}</span>
-      <select aria-label={label} value={value} onChange={(event) => onChange(event.target.value as Value)}>
+      <select
+        aria-label={label}
+        value={value}
+        onChange={(event) => onChange(event.target.value as Value)}
+      >
         {options.map((option) => (
           <option key={option.value} value={option.value}>
             {option.label}
@@ -348,7 +439,11 @@ function ViewportNote({
   readonly tone: 'danger' | 'neutral';
 }): React.JSX.Element {
   return (
-    <p className={tone === 'danger' ? 'cad-viewport__note cad-viewport__note--danger' : 'cad-viewport__note'}>
+    <p
+      className={
+        tone === 'danger' ? 'cad-viewport__note cad-viewport__note--danger' : 'cad-viewport__note'
+      }
+    >
       {children}
     </p>
   );

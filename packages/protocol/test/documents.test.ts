@@ -166,6 +166,25 @@ describe('BuildDocumentResponseSchema', () => {
             },
           },
         ],
+        topology: {
+          entities: [
+            {
+              id: 'pad_1.face.top',
+              kind: 'face',
+              featureId: 'pad_1',
+              constructionPath: 'pad_1.face.top',
+              label: 'Top face',
+              centroid: [0.5, 0.5, 1],
+              normal: [0, 0, 1],
+              area: 1,
+              zRange: [1, 1],
+              hash: {
+                value: 'd'.repeat(64),
+                quantization: 1e-6,
+              },
+            },
+          ],
+        },
         tessellation: {
           positions: [0, 0, 0],
           normals: [0, 0, 1],

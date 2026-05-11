@@ -9,6 +9,7 @@ import {
   type LoginResponse,
   type Project,
 } from '@cad/protocol';
+import { createHandleFromEntity, resolveHandle } from '@cad/references';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { SESSION_COOKIE_NAME, extractSessionCookie } from '../src/cookies.js';
@@ -27,10 +28,7 @@ function waitForPublishedEvents(
     const events: DocumentBuildEvent[] = [];
     const eventBus = context.app as typeof context.app & {
       readonly documentEvents: {
-        subscribe(
-          documentId: string,
-          listener: (event: DocumentBuildEvent) => void,
-        ): () => void;
+        subscribe(documentId: string, listener: (event: DocumentBuildEvent) => void): () => void;
       };
     };
     const unsubscribe = eventBus.documentEvents.subscribe(documentId, (event) => {
@@ -97,7 +95,9 @@ describe('/documents/:id/build', () => {
       payload: { name: 'build spec host' },
     });
     if (projectResponse.statusCode !== 201) {
-      throw new Error(`build.int.test: project create failed (status ${String(projectResponse.statusCode)})`);
+      throw new Error(
+        `build.int.test: project create failed (status ${String(projectResponse.statusCode)})`,
+      );
     }
     project = projectResponse.json<Project>();
   });
@@ -135,6 +135,13 @@ describe('/documents/:id/build', () => {
       expect.objectContaining({ id: 'sketch_1', kind: 'sketch', cached: false }),
       expect.objectContaining({ id: 'pad_1', kind: 'pad', cached: false }),
     ]);
+    expect(
+      build.build.topology.entities.some((entity) => entity.constructionPath === 'pad_1.face.top'),
+    ).toBe(true);
+    expect(build.build.tessellation).not.toBeNull();
+    if (build.build.tessellation === null) {
+      throw new Error('Expected build tessellation.');
+    }
     expect(build.build.tessellation.metadata.hash).toMatch(/^[a-f0-9]{64}$/u);
 
     const artifactResponse = await fetch(build.artifactUrl);
@@ -142,7 +149,65 @@ describe('/documents/:id/build', () => {
     const artifactJson = (await artifactResponse.json()) as BuildDocumentResponse['build'];
     expect(artifactJson.documentHash).toBe(build.build.documentHash);
     expect(artifactJson.parameterOrder).toEqual(build.build.parameterOrder);
+    expect(
+      artifactJson.topology.entities.some((entity) => entity.constructionPath === 'pad_1.face.top'),
+    ).toBe(true);
+    expect(artifactJson.tessellation).not.toBeNull();
+    if (artifactJson.tessellation === null) {
+      throw new Error('Expected artifact tessellation.');
+    }
     expect(artifactJson.tessellation.metadata.hash).toBe(build.build.tessellation.metadata.hash);
+  });
+
+  it('keeps a selected face handle resolvable after an upstream source edit', async () => {
+    const created = await context.app.inject({
+      method: 'POST',
+      url: `/projects/${project.id}/documents`,
+      cookies,
+      payload: { name: 'reference-survival', tsSource: VALID_DOCUMENT },
+    });
+    expect(created.statusCode).toBe(201);
+    const document = created.json<Document>();
+
+    const firstBuildResponse = await context.app.inject({
+      method: 'POST',
+      url: `/documents/${document.id}/build`,
+      cookies,
+    });
+    expect(firstBuildResponse.statusCode).toBe(200);
+    const firstBuild = firstBuildResponse.json<BuildDocumentResponse>();
+    const topFace = firstBuild.build.topology.entities.find(
+      (entity) => entity.constructionPath === 'pad_1.face.top',
+    );
+    if (topFace === undefined) {
+      throw new Error('Expected pad_1.face.top topology entity.');
+    }
+    const handle = createHandleFromEntity(topFace);
+
+    const patched = await context.app.inject({
+      method: 'PATCH',
+      url: `/documents/${document.id}`,
+      cookies,
+      payload: {
+        tsSource: VALID_DOCUMENT.replace(
+          "width: { kind: 'number', value: 14, unit: 'mm' }",
+          "width: { kind: 'number', value: 18, unit: 'mm' }",
+        ),
+      },
+    });
+    expect(patched.statusCode).toBe(200);
+
+    const secondBuildResponse = await context.app.inject({
+      method: 'POST',
+      url: `/documents/${document.id}/build`,
+      cookies,
+    });
+    expect(secondBuildResponse.statusCode).toBe(200);
+    const secondBuild = secondBuildResponse.json<BuildDocumentResponse>();
+    const resolved = resolveHandle(handle, secondBuild.build.topology);
+    expect(resolved.ok).toBe(true);
+    expect(resolved.layer).toBe('construction');
+    expect(resolved.entity?.constructionPath).toBe('pad_1.face.top');
   });
 
   it('exports a built document as STL', async () => {
@@ -229,6 +294,10 @@ export default {};
     });
     expect(response.statusCode).toBe(200);
     const build = response.json<BuildDocumentResponse>();
+    expect(build.build.tessellation).not.toBeNull();
+    if (build.build.tessellation === null) {
+      throw new Error('Expected streamed build tessellation.');
+    }
 
     const streamed = await eventPromise;
     expect(streamed[0]).toEqual(

@@ -46,13 +46,13 @@
     "@types/node": "^25.6.0",
     "eslint": "^9.39.4",
     "gray-matter": "^4.0.3",
-    "i18next-cli": "^1.52.1",
-    "knip": "^6.4.1",
-    "prettier": "^3.8.2",
+    "i18next-cli": "^1.65.0",
+    "knip": "^6.24.0",
+    "prettier": "^3.9.4",
     "rimraf": "^6.0.1",
-    "tsx": "^4.19.0",
-    "turbo": "^2.3.0",
-    "typescript": "^6.0.2",
-    "vitest": "^4.1.4"
+    "tsx": "^4.23.0",
+    "turbo": "^2.10.3",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.9"
   }
 }
